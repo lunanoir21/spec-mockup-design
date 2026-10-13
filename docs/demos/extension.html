@@ -1,0 +1,1045 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Tab Cabinet — extension popup mockup</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400..700&family=Cantarell:wght@400;700&family=JetBrains+Mono:wght@400;500&display=swap">
+<style>
+/* CHANGELOG
+  r1: scaffold (new-canvas.py)
+  r2: direction + 7 state/service boards filled; palette.py hue 78 calm/analogous; scales.py app/compact.
+  States covered by the popup component: idle, hover, focus-visible, active (current tab), pressed,
+  grouped, collapsed-expanded, search-hit, search-miss, loading (skeleton), empty, error/no-permission,
+  disabled, offline, long-text overflow, dark theme.
+*/
+/* ===== tokens ===== */
+:root{
+  /* palette: palette.py --hue 78 --mood calm --scheme analogous */
+  --bg:#f6f3ef; --surface:#fcf9f5; --raised:#fffdfb; --line:#dad7d2; --line-strong:#c9c5bf;
+  --text:#211f1b; --muted:#6c6863; --accent:#7c5500; --accent-soft:#f6e5cc; --on-accent:#ffffff;
+  --danger:#953e37; --danger-soft:#f6ded9; --warn:#7d540a; --ok:#326c41; --info:#216587;
+  --s1:#714e01; --s2:#03798e; --s3:#7d3c5a; --s4:#587738; --s5:#3e528b; --s6:#9a5839;
+  /* dark theme: its own design, not an inversion (lighter accent, softer steps) */
+  --dk-bg:#110f0d; --dk-surface:#151310; --dk-raised:#191714; --dk-line:#24211e; --dk-line-strong:#34302a;
+  --dk-text:#e1ddd9; --dk-muted:#a29e98; --dk-accent:#d0a257; --dk-accent-soft:#2e220d; --dk-on-accent:#191714;
+  --dk-danger:#ec8c82; --dk-danger-soft:#331d1a; --dk-s1:#d6ad6b; --dk-s2:#47aac1; --dk-s3:#e59aba;
+  /* type + space: scales.py --target app --density compact */
+  --fs-2xs:11px; --fs-xs:11.5px; --fs-s:14px; --fs-m:17px; --fs-l:20px;
+  --sp-1:4px; --sp-2:6px; --sp-3:8px; --sp-4:12px; --sp-5:18px; --sp-6:24px; --sp-7:36px;
+  --radius-s:4px; --radius-m:8px; --radius-l:14px; --radius-pill:999px;
+  --dur-micro:120ms; --dur-small:200ms; --dur-large:300ms;
+  --ease-out:cubic-bezier(.2,.8,.2,1); --ease-in:cubic-bezier(.4,0,1,1);
+  --stroke:1.5px; --icon:16px;
+  --font-ui:"Cantarell","Noto Sans",sans-serif;
+  --font-display:"Bricolage Grotesque","Cantarell",sans-serif;
+  --font-mono:"JetBrains Mono",monospace;
+  /* canvas chrome, not part of the design */
+  --canvas:#191714; --chrome:#a29e98;
+}
+html[data-theme="graphite"]{
+  --bg:var(--dk-bg); --surface:var(--dk-surface); --raised:var(--dk-raised); --line:var(--dk-line); --line-strong:var(--dk-line-strong);
+  --text:var(--dk-text); --muted:var(--dk-muted); --accent:var(--dk-accent); --accent-soft:var(--dk-accent-soft); --on-accent:var(--dk-on-accent);
+  --danger:var(--dk-danger); --danger-soft:var(--dk-danger-soft);
+}
+*{box-sizing:border-box}
+html{background:var(--canvas)}
+body{margin:0;font:14px/1.5 var(--font-ui);color:#e6e3df}
+.shell{padding:24px 16px 80px;max-width:1700px;margin:0 auto}
+h1{font:600 20px/1.2 var(--font-display);margin:0 0 4px}
+.sub{color:var(--chrome);margin:0 0 12px;font-size:13px}
+.themes{display:flex;gap:8px;margin:0 0 16px;flex-wrap:wrap}
+.themes button{font:500 12px/1 var(--font-ui);padding:6px 12px;border:1px solid #3a4340;background:transparent;color:#d6dcd9;border-radius:var(--radius-pill);cursor:pointer}
+.themes button[aria-pressed=true]{background:#d6dcd9;color:#141614;border-color:#d6dcd9}
+nav.index{display:flex;flex-wrap:wrap;gap:6px 12px;margin:0 0 24px;padding:0 0 12px;border-bottom:1px solid #2c3330}
+nav.index a{color:#d6dcd9;text-decoration:none;font-size:13px;border-bottom:1px solid transparent}
+nav.index a:hover{color:#fff;border-bottom-color:currentColor}
+.grid{display:flex;flex-wrap:wrap;gap:32px 28px;align-items:flex-start}
+.board{display:flex;flex-direction:column;gap:8px;max-width:100%}
+.board>header{display:flex;gap:8px;align-items:baseline;font-size:12px;color:var(--chrome)}
+.board>header b{color:#e6ebe8;font-weight:600}
+.board>header code{font:11px var(--font-mono);opacity:.8}
+.artboard{background:var(--bg);color:var(--text);font:var(--fs-s)/1.45 var(--font-ui);border:1px solid var(--line-strong);overflow:hidden;position:relative}
+.artboard.t-graphite{
+  --bg:var(--dk-bg); --surface:var(--dk-surface); --raised:var(--dk-raised); --line:var(--dk-line); --line-strong:var(--dk-line-strong);
+  --text:var(--dk-text); --muted:var(--dk-muted); --accent:var(--dk-accent); --accent-soft:var(--dk-accent-soft); --on-accent:var(--dk-on-accent);
+  --danger:var(--dk-danger); --danger-soft:var(--dk-danger-soft);
+  --s1:var(--dk-s1); --s2:var(--dk-s2); --s3:var(--dk-s3);
+}
+.note{max-width:var(--w,520px);font-size:12px;color:var(--chrome)}
+.note b{color:#dfe4e1}
+/* ===== icons: one set, 1.5px stroke, round caps ===== */
+.i{width:var(--icon);height:var(--icon);stroke:currentColor;fill:none;stroke-width:var(--stroke);stroke-linecap:round;stroke-linejoin:round;flex:none}
+.i-l{width:20px;height:20px}
+/* ===== popup component ===== */
+.pop{width:100%;height:100%;display:flex;flex-direction:column;background:var(--bg);position:relative}
+.hd{display:flex;align-items:center;gap:var(--sp-2);padding:12px 14px 10px}
+.brand{display:flex;align-items:center;gap:var(--sp-2);color:var(--accent)}
+.brand h2{font:700 var(--fs-s)/1.15 var(--font-ui);color:var(--text);margin:0;letter-spacing:-.005em}
+.hact{margin-left:auto;display:flex;gap:var(--sp-1)}
+.ibtn{all:unset;display:grid;place-items:center;width:28px;height:28px;border-radius:var(--radius-s);color:var(--muted);cursor:pointer}
+.ibtn:hover,.ibtn:focus-visible{background:var(--surface);color:var(--text)}
+.ibtn:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
+.ibtn.is-pressed{background:var(--accent-soft);color:var(--accent)}
+.ibtn[aria-disabled="true"]{color:var(--line-strong);cursor:not-allowed}
+.tally{display:flex;align-items:baseline;gap:var(--sp-3);padding:0 14px 10px}
+.bignum{font:600 var(--fs-l)/1 var(--font-display);font-variant-numeric:tabular-nums;letter-spacing:-.015em}
+.tally .unit{font-size:var(--fs-2xs);color:var(--muted);line-height:1.3}
+.tally .mem{margin-left:auto;font-size:var(--fs-2xs);color:var(--muted);font-variant-numeric:tabular-nums}
+.psearch{display:flex;align-items:center;gap:var(--sp-2);margin:0 14px 10px;padding:0 10px;height:36px;background:var(--surface);border:1px solid var(--line);border-radius:var(--radius-m);color:var(--muted)}
+.psearch.is-focus{border-color:var(--accent);background:var(--raised)}
+.psearch input{all:unset;flex:1;font:var(--fs-s)/1 var(--font-ui);color:var(--text);min-width:0}
+.psearch input::placeholder{color:var(--muted)}
+.kbd{font:500 var(--fs-2xs)/1 var(--font-mono);padding:3px 5px;border:1px solid var(--line);border-radius:var(--radius-s);color:var(--muted)}
+.chips{display:flex;gap:var(--sp-1);padding:0 14px 10px;overflow:hidden}
+.chip{display:flex;align-items:center;gap:5px;font-size:var(--fs-2xs);padding:4px 9px;border:1px solid var(--line);border-radius:var(--radius-pill);color:var(--muted);white-space:nowrap}
+.chip.is-on{background:var(--text);color:var(--bg);border-color:var(--text)}
+.chip .dot{width:6px;height:6px;border-radius:var(--radius-pill);background:var(--s1)}
+.chip .n{font-variant-numeric:tabular-nums;opacity:.75}
+.chips .sort{margin-left:auto}
+.plist{flex:1;list-style:none;margin:0;padding:0 8px;overflow:hidden}
+.grp{display:flex;align-items:center;gap:var(--sp-2);padding:8px 6px 5px;color:var(--muted);font-size:var(--fs-2xs)}
+.grp .gname{font-weight:700;color:var(--text);font-size:var(--fs-xs);letter-spacing:0}
+.grp .gap{width:7px;height:7px;border-radius:var(--radius-pill);background:var(--s1);flex:none}
+.grp .n{margin-left:auto;font-variant-numeric:tabular-nums}
+.row{display:grid;grid-template-columns:18px 1fr auto auto;gap:var(--sp-2);align-items:center;min-height:40px;padding:5px 6px;border-radius:var(--radius-s);position:relative}
+.row:hover{background:var(--surface)}
+.row.is-current{background:var(--raised);box-shadow:inset 0 0 0 1px var(--line)}
+.row.is-current .ttl{font-weight:700}
+.fold{position:absolute;left:-1px;top:-1px;width:13px;height:13px;background:var(--accent);clip-path:polygon(0 0,100% 0,0 100%)}
+.mark{width:18px;height:18px;border-radius:var(--radius-s);display:grid;place-items:center;font:700 var(--fs-2xs)/1 var(--font-ui);color:var(--on-accent);background:var(--tint,var(--s5))}
+.rt{min-width:0;display:flex;flex-direction:column;gap:1px}
+.ttl{font-size:var(--fs-s);line-height:1.25;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.ttl.long{white-space:normal;display:-webkit-box;-webkit-line-clamp:1;-webkit-box-orient:vertical}
+.host{font:var(--fs-2xs)/1.3 var(--font-mono);color:var(--muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.meta{font-size:var(--fs-2xs);color:var(--muted);font-variant-numeric:tabular-nums;display:flex;align-items:center;gap:5px}
+.meta .i{width:14px;height:14px;color:var(--accent)}
+.row .x{all:unset;display:grid;place-items:center;width:24px;height:24px;border-radius:var(--radius-s);color:var(--muted);cursor:pointer}
+.row .x:hover{background:var(--line);color:var(--text)}
+.row .x.hold{opacity:.35}
+mark{background:var(--accent-soft);color:var(--text);border-radius:2px;padding:0 1px}
+.pfoot{display:flex;align-items:center;gap:var(--sp-3);padding:9px 14px;border-top:1px solid var(--line);background:var(--surface);font-size:var(--fs-2xs);color:var(--muted)}
+.pfoot .grow{flex:1}
+.tlink{color:var(--accent);font-weight:700;cursor:pointer}
+.tlink:hover{text-decoration:underline}
+.btn{all:unset;text-align:center;font:700 var(--fs-s)/1 var(--font-ui);padding:10px 14px;border-radius:var(--radius-m);cursor:pointer}
+.btn-p{background:var(--accent);color:var(--on-accent)}
+.btn-g{border:1px solid var(--line);color:var(--text);font-weight:400}
+.btn-g:hover{background:var(--surface)}
+.btn[aria-disabled="true"]{background:var(--line);color:var(--muted);cursor:not-allowed}
+.emptywrap{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:0 34px;gap:var(--sp-3)}
+.emptywrap h3{font:600 var(--fs-m)/1.25 var(--font-display);margin:0;letter-spacing:-.01em}
+.emptywrap p{margin:0;color:var(--muted);font-size:var(--fs-xs)}
+.bar{display:flex;gap:var(--sp-2);align-items:center;margin-top:var(--sp-2)}
+.errwrap{flex:1;display:flex;flex-direction:column;justify-content:center;padding:0 20px;gap:var(--sp-3)}
+.errcard{border:1px solid var(--line);border-radius:var(--radius-l);padding:16px;background:var(--surface)}
+.errcard .hh{display:flex;gap:var(--sp-2);align-items:center;color:var(--danger);font:700 var(--fs-s)/1.2 var(--font-ui)}
+.errcard p{margin:var(--sp-2) 0 0;font-size:var(--fs-xs);color:var(--muted)}
+.code{margin-top:var(--sp-2);font:var(--fs-2xs)/1.5 var(--font-mono);color:var(--text);background:var(--bg);border:1px solid var(--line);border-radius:var(--radius-s);padding:7px 8px;word-break:break-all}
+.skl{border:1px solid var(--line);border-radius:var(--radius-m);overflow:hidden}
+.sklrow{display:grid;grid-template-columns:18px 1fr 42px;gap:var(--sp-2);align-items:center;padding:9px 10px;border-bottom:1px solid var(--line)}
+.sklrow:last-child{border-bottom:0}
+.bar-s{height:8px;border-radius:var(--radius-s);background:var(--line)}
+.bar-s.w1{width:62%}.bar-s.w2{width:44%}.bar-s.w3{width:71%}
+.sklrow .bx{width:18px;height:18px;border-radius:var(--radius-s);background:var(--line)}
+.scrim{position:absolute;inset:0;background:var(--bg);opacity:.72}
+/* ===== spec / annotation boards ===== */
+.doc{padding:18px;height:100%;overflow:hidden}
+.cols{display:grid;grid-template-columns:1fr 1fr;gap:22px}
+.eyebrow{font-size:var(--fs-2xs);color:var(--muted);margin:0 0 6px}
+.doc h3{font:700 var(--fs-xs)/1.2 var(--font-ui);margin:14px 0 5px;color:var(--text)}
+.doc h3:first-of-type{margin-top:0}
+.doc p{margin:0 0 6px;font-size:var(--fs-xs);line-height:1.5;color:var(--text)}
+.doc ul{margin:4px 0 0;padding-left:16px;font-size:var(--fs-xs);line-height:1.55;color:var(--text)}
+.concept{font:600 var(--fs-m)/1.3 var(--font-display);letter-spacing:-.01em;margin:0 0 10px}
+.hi{background:var(--accent-soft);padding:1px 3px;border-radius:2px}
+.mstrip{display:flex;align-items:center;gap:6px;margin-top:6px}
+.frame{width:104px;border:1px solid var(--line);border-radius:var(--radius-s);padding:5px 6px;background:var(--surface)}
+.frame .frow{height:12px;border-radius:2px;background:var(--line);margin-bottom:3px}
+.tick{font:var(--fs-2xs)/1.2 var(--font-mono);color:var(--muted);white-space:nowrap}
+.mtable{width:100%;border-collapse:collapse;font-size:var(--fs-2xs);margin-top:6px}
+.mtable th{text-align:left;font-weight:700;color:var(--text);border-bottom:1px solid var(--line);padding:4px 6px 4px 0}
+.mtable td{padding:4px 6px 4px 0;color:var(--muted);border-bottom:1px solid var(--line)}
+.mono{font-family:var(--font-mono)}
+.sw{display:flex;flex-wrap:wrap;gap:6px;margin:6px 0 0}
+.sw div{width:74px;border:1px solid var(--line);border-radius:var(--radius-s);overflow:hidden}
+.sw .chipc{height:26px}
+.sw .lb{font:var(--fs-2xs)/1.35 var(--font-mono);padding:4px 5px;color:var(--muted);background:var(--surface)}
+.sw .lb b{display:block;color:var(--text);font-weight:500}
+.typerow{display:flex;align-items:baseline;gap:10px;padding:5px 0;border-bottom:1px solid var(--line)}
+.typerow .rg{font:var(--fs-2xs)/1 var(--font-mono);color:var(--muted);width:86px;flex:none}
+.fontrow{display:flex;align-items:baseline;gap:8px;padding:4px 0;border-bottom:1px solid var(--line)}
+.fontrow .fn{width:118px;flex:none;font-size:var(--fs-2xs);color:var(--muted)}
+.fontrow .fx{font-size:var(--fs-s);overflow:hidden;white-space:nowrap;text-overflow:ellipsis}
+.icongrid{display:flex;gap:14px;flex-wrap:wrap;margin-top:6px;align-items:center}
+.icongrid figure{margin:0;display:flex;flex-direction:column;align-items:center;gap:4px;color:var(--text)}
+.icongrid figcaption{font-size:var(--fs-2xs);color:var(--muted);font-family:var(--font-mono)}
+.rule{height:1px;background:var(--line);margin:10px 0}
+.legend{display:flex;gap:12px;flex-wrap:wrap;font-size:var(--fs-2xs);color:var(--muted);margin:0 0 12px}
+.legend b{color:var(--text)}
+@media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
+</style>
+</head>
+<body>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true"><defs>
+<symbol id="i-search" viewBox="0 0 16 16"><circle cx="7.2" cy="7.2" r="4.3"/><path d="M10.4 10.4 13.4 13.4"/></symbol>
+<symbol id="i-x" viewBox="0 0 16 16"><path d="M4.2 4.2 11.8 11.8M11.8 4.2 4.2 11.8"/></symbol>
+<symbol id="i-chev" viewBox="0 0 16 16"><path d="M5.6 6.6 8 9l2.4-2.4"/></symbol>
+<symbol id="i-chev-r" viewBox="0 0 16 16"><path d="M6.6 5.6 9 8l-2.4 2.4"/></symbol>
+<symbol id="i-sound" viewBox="0 0 16 16"><path d="M3.4 6.2h2.1L8.6 4v8L5.5 9.8H3.4z"/><path d="M10.5 6.3a2.5 2.5 0 0 1 0 3.4"/></symbol>
+<symbol id="i-pin" viewBox="0 0 16 16"><path d="M6 2.6h4l-.7 3.2 2.2 2.1H9.3V13l-1.3.9-1.3-.9V7.9H4.5l2.2-2.1z"/></symbol>
+<symbol id="i-grip" viewBox="0 0 16 16"><path d="M6.2 4.6h.01M9.8 4.6h.01M6.2 8h.01M9.8 8h.01M6.2 11.4h.01M9.8 11.4h.01"/></symbol>
+<symbol id="i-warn" viewBox="0 0 16 16"><path d="M8 2.8 13.4 12.6H2.6z"/><path d="M8 6.5v3.1"/><path d="M8 11.5h.01"/></symbol>
+<symbol id="i-refresh" viewBox="0 0 16 16"><path d="M12.9 8A4.9 4.9 0 1 1 11.3 4.3"/><path d="M13.1 2.9v2.7h-2.7"/></symbol>
+<symbol id="i-plus" viewBox="0 0 16 16"><path d="M8 3.4v9.2M3.4 8h9.2"/></symbol>
+<symbol id="i-sort" viewBox="0 0 16 16"><path d="M3.6 5.4h8.8M5.4 8h5.2M6.8 10.6h2.4"/></symbol>
+<symbol id="i-sliders" viewBox="0 0 16 16"><path d="M2.8 5.6h10.4M2.8 10.4h10.4"/><circle cx="6" cy="5.6" r="1.7"/><circle cx="10" cy="10.4" r="1.7"/></symbol>
+<symbol id="i-cabinet" viewBox="0 0 16 16"><path d="M2.4 3.4h4.3l1.2 1.7h5.7v7.5H2.4z"/><path d="M2.4 6.6h11.2"/><path d="M7 8.4h2"/></symbol>
+<symbol id="i-restore" viewBox="0 0 16 16"><path d="M3.1 7.3A5 5 0 1 1 3.9 11.4"/><path d="M2.9 3.6v3.7h3.7"/></symbol>
+<symbol id="i-shield" viewBox="0 0 16 16"><path d="M8 2.5 13 4.3v4c0 2.7-2.1 4.6-5 5.2-2.9-.6-5-2.5-5-5.2v-4z"/><path d="M8 6.2v3"/><path d="M8 11h.01"/></symbol>
+</defs></svg>
+
+<div class="shell">
+<h1>Tab Cabinet — extension popup</h1>
+<p class="sub">8 boards at real size (popup column 380 px) · Canvas: drag to pan, ctrl+wheel to zoom, F to focus a board, 0 to fit</p>
+<div class="themes" role="group" aria-label="Theme"><button data-theme="bone">Bone</button><button data-theme="graphite">Graphite</button></div>
+<nav class="index"><a href="#direction">direction</a><a href="#list">list</a><a href="#search">search</a><a href="#groups">groups</a><a href="#empty">empty</a><a href="#error">error</a><a href="#dark">dark</a><a href="#tokens">tokens</a></nav>
+<div class="grid">
+
+<!-- ============ 1. DIRECTION ============ -->
+<section class="board" id="direction" data-board="direction" style="--w:680px">
+  <header><b>Direction &amp; reference</b><code>680×520</code></header>
+  <div class="artboard" style="width:680px;height:520px">
+    <div class="doc">
+      <p class="eyebrow">No reference project was supplied. Structure borrowed from the browser popup convention; palette and type are proposed, not copied.</p>
+      <div class="cols">
+        <div>
+          <p class="concept">A filing index for open tabs: bone-paper slips on a graphite frame, the current tab pulled forward with its corner turned down, and one brass signal doing all the accent work.</p>
+          <h3>One bold move</h3>
+          <div style="border:1px solid var(--line);border-radius:var(--radius-m);padding:7px 6px;background:var(--surface);position:relative">
+            <div class="row is-current" style="min-height:40px">
+              <span class="fold"></span>
+              <span class="mark" style="--tint:var(--s1)">A</span>
+              <span class="rt"><span class="ttl">Deployments · acme-console</span><span class="host">console.acme.io · opened 2h ago</span></span>
+              <span class="meta">2m</span><span class="x"><svg class="i"><use href="#i-x"/></svg></span>
+            </div>
+          </div>
+          <p style="margin-top:6px">The current tab is the only element allowed to be loud: a folded top-left corner in brass, a raised paper fill and bold title. No left accent bar anywhere — status is carried by shape and weight.</p>
+          <h3>Palette</h3>
+          <p>Hue 78 (brass/ochre) — this is a utility instrument, not a brand, so the accent stays desaturated and appears on exactly two things: the current tab and the one primary action. Neutrals are tinted toward the same hue; brick <span class="mono">#953e37</span> is reserved for the single destructive action, and it never appears without an icon and a verb.</p>
+          <h3>Type</h3>
+          <p>Cantarell for the UI (a real desktop face, dense at 11–14 px), Bricolage Grotesque for the one hero numeral, JetBrains Mono for hosts and URLs — the only place mono earns its keep.</p>
+        </div>
+        <div>
+          <h3>Borrowed vs. invented</h3>
+          <ul>
+            <li><b>Borrowed:</b> the 380 px popup column; 40 px row rhythm; hairline separation; chevron-collapsed groups; ⌘K / Esc conventions; the footer action bar.</li>
+            <li><b>Invented:</b> the palette and the type pairing; the folded-corner current marker (replacing the usual coloured rail); the "reclaimable memory" line; the folded-slip hover.</li>
+          </ul>
+          <h3>Motion storyboard — closing a tab</h3>
+          <div class="mstrip">
+            <div class="frame"><div class="frow" style="width:78%"></div><div class="frow" style="width:52%;background:var(--accent-soft);border:1px solid var(--accent)"></div><div class="frow" style="width:66%"></div></div>
+            <span class="tick">t=0<br>t=120ms</span>
+            <div class="frame"><div class="frow" style="width:78%"></div><div class="frow" style="width:52%;opacity:.4"></div><div class="frow" style="width:66%"></div></div>
+            <span class="tick">t=200ms<br>row gone</span>
+            <div class="frame"><div class="frow" style="width:78%"></div><div class="frow" style="width:66%;background:var(--accent-soft)"></div><div class="frow" style="width:46%"></div></div>
+          </div>
+          <table class="mtable">
+            <tr><th>Transition</th><th>Dur</th><th>Easing</th></tr>
+            <tr><td>Row hover fill</td><td class="mono">120ms</td><td class="mono">ease-out</td></tr>
+            <tr><td>Tab closed, list closes up</td><td class="mono">200ms</td><td class="mono">ease-in</td></tr>
+            <tr><td>Popup appears at anchor</td><td class="mono">200ms</td><td class="mono">ease-out</td></tr>
+            <tr><td>Group expand / collapse</td><td class="mono">300ms</td><td class="mono">ease-out</td></tr>
+            <tr><td>Reduced motion</td><td class="mono">—</td><td>opacity only</td></tr>
+          </table>
+          <h3>Voice (real strings, not filler)</h3>
+          <p class="mono" style="font-size:11px">"Can't read this window's tabs." · "Nothing open in this window." · "Restore last 6 closed" · "412 MB reclaimable"</p>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="note"><b>direction:</b> concept sentence, the one bold move, palette/type plan, borrowed-vs-invented, and the closing-a-tab storyboard. Ungrounded by a reference project — say the word and I will re-ground it in a real product.</div>
+</section>
+
+<!-- ============ 2. LIST (idle, populated) ============ -->
+<section class="board" id="list" data-board="list" style="--w:380px">
+  <header><b>Tab list</b><code>380×620</code></header>
+  <div class="artboard" style="width:380px;height:620px">
+    <div class="pop">
+      <header class="hd">
+        <div class="brand"><svg class="i i-l"><use href="#i-cabinet"/></svg><h2>Tab Cabinet</h2></div>
+        <div class="hact">
+          <button class="ibtn is-pressed" aria-label="Sort by recent"><svg class="i"><use href="#i-sort"/></svg></button>
+          <button class="ibtn" aria-label="Settings"><svg class="i"><use href="#i-sliders"/></svg></button>
+        </div>
+      </header>
+      <div class="tally">
+        <span class="bignum">18</span>
+        <span class="unit">tabs in 3 groups<br>windows 1–3</span>
+        <span class="mem">412 MB reclaimable</span>
+      </div>
+      <div class="psearch"><svg class="i"><use href="#i-search"/></svg><input placeholder="Search tabs, URLs, groups" value=""><span class="kbd">⌘K</span></div>
+      <div class="chips">
+        <span class="chip is-on">All <span class="n">18</span></span>
+        <span class="chip"><span class="dot" style="background:var(--s1)"></span>Work <span class="n">6</span></span>
+        <span class="chip"><span class="dot" style="background:var(--s2)"></span>Reading <span class="n">5</span></span>
+        <span class="chip sort">Recent <svg class="i" style="width:12px;height:12px"><use href="#i-chev"/></svg></span>
+      </div>
+      <ul class="plist">
+        <li class="grp"><svg class="i" style="width:14px;height:14px;color:var(--muted)"><use href="#i-chev"/></svg><span class="gap"></span><span class="gname">Work — Tidewell console</span><span class="n">6</span></li>
+        <li class="row is-current">
+          <span class="fold"></span>
+          <span class="mark" style="--tint:var(--s1)">A</span>
+          <span class="rt"><span class="ttl">Deployments · acme-console</span><span class="host">console.acme.io/eu-west-1/deploys</span></span>
+          <span class="meta">2m</span>
+          <span class="x"><svg class="i"><use href="#i-x"/></svg></span>
+        </li>
+        <li class="row">
+          <span class="mark" style="--tint:var(--s6)">S</span>
+          <span class="rt"><span class="ttl">Incident 4821 — elevated 5xx on edge-eu</span><span class="host">status.acme.io/incidents/4821</span></span>
+          <span class="meta"><svg class="i"><use href="#i-sound"/></svg>12m</span>
+          <span class="x hold"><svg class="i"><use href="#i-x"/></svg></span>
+        </li>
+        <li class="row">
+          <span class="mark" style="--tint:var(--s3)">G</span>
+          <span class="rt"><span class="ttl">Pull request #1284 · acme/console</span><span class="host">github.com/acme/console/pull/1284</span></span>
+          <span class="meta">26m</span>
+          <span class="x hold"><svg class="i"><use href="#i-x"/></svg></span>
+        </li>
+        <li class="row">
+          <span class="mark" style="--tint:var(--s4)">G</span>
+          <span class="rt"><span class="ttl">Checkout latency p99 — Grafana</span><span class="host">grafana.acme.io/d/latency-north</span></span>
+          <span class="meta"><svg class="i"><use href="#i-pin"/></svg>1h</span>
+          <span class="x hold"><svg class="i"><use href="#i-x"/></svg></span>
+        </li>
+        <li class="grp"><svg class="i" style="width:14px;height:14px;color:var(--muted)"><use href="#i-chev"/></svg><span class="gap" style="background:var(--s2)"></span><span class="gname">Reading</span><span class="n">5</span></li>
+        <li class="row">
+          <span class="mark" style="--tint:var(--s2)">T</span>
+          <span class="rt"><span class="ttl">The cost of a tab, a decade later</span><span class="host">longreads.example.org/features/tabs</span></span>
+          <span class="meta">Yesterday</span>
+          <span class="x hold"><svg class="i"><use href="#i-x"/></svg></span>
+        </li>
+        <li class="row">
+          <span class="mark" style="--tint:var(--s5)">İ</span>
+          <span class="rt"><span class="ttl">İstanbul'da metro hatları — Şubat haritası</span><span class="host">ibb.istanbul/tr/ulasim/metro</span></span>
+          <span class="meta">Tue</span>
+          <span class="x hold"><svg class="i"><use href="#i-x"/></svg></span>
+        </li>
+        <li class="grp"><svg class="i" style="width:14px;height:14px;color:var(--muted)"><use href="#i-chev"/></svg><span class="gap" style="background:var(--line-strong)"></span><span class="gname">Ungrouped</span><span class="n">7</span></li>
+        <li class="row">
+          <span class="mark" style="--tint:var(--s5)">L</span>
+          <span class="rt"><span class="ttl">localhost:3000 — popup dev</span><span class="host">localhost:3000/extension/popup</span></span>
+          <span class="meta">now</span>
+          <span class="x hold"><svg class="i"><use href="#i-x"/></svg></span>
+        </li>
+      </ul>
+      <div class="pfoot">
+        <span class="tlink">Close 3 duplicates</span>
+        <span class="grow"></span>
+        <span>⌘⇧T restores</span>
+        <button class="ibtn" aria-label="New tab"><svg class="i"><use href="#i-plus"/></svg></button>
+      </div>
+    </div>
+  </div>
+  <div class="note"><b>list (idle, populated):</b> the default view. Current tab = folded corner + raised slip + bold title; hovered row shows its close button, quiet rows keep theirs at 35%. Audio and pinned tabs are marked in the meta column, not by colour alone.</div>
+</section>
+
+<!-- ============ 3. SEARCH ============ -->
+<section class="board" id="search" data-board="search" style="--w:380px">
+  <header><b>Search — hits, one miss</b><code>380×620</code></header>
+  <div class="artboard" style="width:380px;height:620px">
+    <div class="pop">
+      <header class="hd">
+        <div class="brand"><svg class="i i-l"><use href="#i-cabinet"/></svg><h2>Tab Cabinet</h2></div>
+        <div class="hact">
+          <button class="ibtn" aria-label="Sort by recent"><svg class="i"><use href="#i-sort"/></svg></button>
+          <button class="ibtn" aria-label="Settings"><svg class="i"><use href="#i-sliders"/></svg></button>
+        </div>
+      </header>
+      <div class="psearch is-focus">
+        <svg class="i"><use href="#i-search"/></svg>
+        <input value="check" aria-label="Search tabs">
+        <button class="ibtn" style="width:20px;height:20px" aria-label="Clear search"><svg class="i" style="width:13px;height:13px"><use href="#i-x"/></svg></button>
+      </div>
+      <div class="chips">
+        <span class="chip is-on">9 matches <span class="n">in 4 groups</span></span>
+        <span class="chip">Titles only</span>
+        <span class="chip sort">Best match <svg class="i" style="width:12px;height:12px"><use href="#i-chev"/></svg></span>
+      </div>
+      <ul class="plist">
+        <li class="row is-current">
+          <span class="fold"></span>
+          <span class="mark" style="--tint:var(--s1)">A</span>
+          <span class="rt"><span class="ttl">Deployments · acme-console</span><span class="host">console.acme.io/eu-west-1/deploys</span></span>
+          <span class="meta">2m</span><span class="x"><svg class="i"><use href="#i-x"/></svg></span>
+        </li>
+        <li class="row">
+          <span class="mark" style="--tint:var(--s4)">G</span>
+          <span class="rt"><span class="ttl">Checkout latency p99 — Grafana</span><span class="host">grafana.acme.io/d/latency-north</span></span>
+          <span class="meta">1h</span><span class="x hold"><svg class="i"><use href="#i-x"/></svg></span>
+        </li>
+        <li class="row">
+          <span class="mark" style="--tint:var(--s2)">T</span>
+          <span class="rt"><span class="ttl">Checking out: what the drawer hides</span><span class="host">longreads.example.org/checkout-history</span></span>
+          <span class="meta">Yesterday</span><span class="x hold"><svg class="i"><use href="#i-x"/></svg></span>
+        </li>
+        <li class="row">
+          <span class="mark" style="--tint:var(--s5)">L</span>
+          <span class="rt"><span class="ttl long mono" style="font-family:var(--font-mono);font-size:12px">localhost:3000/checkout/cart/3f9a2c7b1e4d/dunning-retry</span><span class="host">localhost:3000</span></span>
+          <span class="meta">now</span><span class="x hold"><svg class="i"><use href="#i-x"/></svg></span>
+        </li>
+        <li class="row">
+          <span class="mark" style="--tint:var(--s3)">G</span>
+          <span class="rt"><span class="ttl">PR #1177 — checks failing on linux-arm</span><span class="host">github.com/acme/console/pull/1177</span></span>
+          <span class="meta">3d</span><span class="x hold"><svg class="i"><use href="#i-x"/></svg></span>
+        </li>
+        <li class="grp"><span class="gname">No match in “Reading”</span><span class="n">0 of 5</span></li>
+        <li class="row" style="min-height:34px">
+          <span class="mark" style="--tint:var(--line-strong)">+</span>
+          <span class="rt"><span class="ttl" style="font-weight:400;color:var(--muted)">4 more matches in windows 2 and 3</span></span>
+          <span class="meta" style="color:var(--accent);font-weight:700">Show</span>
+        </li>
+      </ul>
+      <div class="pfoot">
+        <span><span class="kbd">↑↓</span> move</span>
+        <span><span class="kbd">↵</span> opens first match</span>
+        <span class="grow"></span>
+        <span class="tlink">Clear</span>
+      </div>
+    </div>
+  </div>
+  <div class="note"><b>search:</b> focused field (brass border), result count as a chip, and an explicit empty result inside a group (“No match in Reading”) instead of silently hiding the group. The 4th row is the long-token test: a 48-character URL path clamps to one line in mono.</div>
+</section>
+
+<!-- ============ 4. GROUPS ============ -->
+<section class="board" id="groups" data-board="groups" style="--w:380px">
+  <header><b>Groups — expanded, collapsed, drop target</b><code>380×620</code></header>
+  <div class="artboard" style="width:380px;height:620px">
+    <div class="pop">
+      <header class="hd">
+        <div class="brand"><svg class="i i-l"><use href="#i-cabinet"/></svg><h2>Tab Cabinet</h2></div>
+        <div class="hact">
+          <button class="ibtn" aria-label="Group by"><svg class="i"><use href="#i-cabinet"/></svg></button>
+          <button class="ibtn" aria-label="Settings"><svg class="i"><use href="#i-sliders"/></svg></button>
+        </div>
+      </header>
+      <div class="tally">
+        <span class="bignum">18</span>
+        <span class="unit">tabs in 3 groups<br>4 groups this week</span>
+        <span class="mem">412 MB reclaimable</span>
+      </div>
+      <div class="chips">
+        <span class="chip is-on">All <span class="n">18</span></span>
+        <span class="chip">Group by site</span>
+        <span class="chip">Group by recency</span>
+        <span class="chip sort">A–Z <svg class="i" style="width:12px;height:12px"><use href="#i-chev"/></svg></span>
+      </div>
+      <ul class="plist">
+        <li class="grp" style="background:var(--surface);border-radius:var(--radius-s)">
+          <svg class="i" style="width:14px;height:14px"><use href="#i-grip"/></svg>
+          <svg class="i" style="width:14px;height:14px"><use href="#i-chev"/></svg>
+          <span class="gap"></span><span class="gname">Work — Tidewell console</span><span class="n">6</span>
+        </li>
+        <li class="row">
+          <span class="mark" style="--tint:var(--s1)">A</span>
+          <span class="rt"><span class="ttl">Deployments · acme-console</span><span class="host">console.acme.io</span></span>
+          <span class="meta">2m</span><span class="x hold"><svg class="i"><use href="#i-x"/></svg></span>
+        </li>
+        <li class="row">
+          <span class="mark" style="--tint:var(--s6)">S</span>
+          <span class="rt"><span class="ttl">Incident 4821 — elevated 5xx on edge-eu</span><span class="host">status.acme.io</span></span>
+          <span class="meta"><svg class="i"><use href="#i-sound"/></svg>12m</span><span class="x hold"><svg class="i"><use href="#i-x"/></svg></span>
+        </li>
+        <li class="row" style="background:var(--accent-soft);box-shadow:inset 0 0 0 1px var(--accent)">
+          <span class="mark" style="--tint:var(--s3)">G</span>
+          <span class="rt"><span class="ttl">Pull request #1284 · acme/console</span><span class="host">github.com/acme/console</span></span>
+          <span class="meta">26m</span><span class="x"><svg class="i"><use href="#i-x"/></svg></span>
+        </li>
+        <li class="row" style="min-height:30px">
+          <span class="rt" style="padding-left:26px"><span class="host" style="color:var(--accent);font-family:var(--font-ui);font-weight:700;font-size:11px">Drop to add 2 selected tabs to “Work”</span></span>
+        </li>
+        <li class="row">
+          <span class="mark" style="--tint:var(--s4)">G</span>
+          <span class="rt"><span class="ttl">Checkout latency p99 — Grafana</span><span class="host">grafana.acme.io</span></span>
+          <span class="meta"><svg class="i"><use href="#i-pin"/></svg>1h</span><span class="x hold"><svg class="i"><use href="#i-x"/></svg></span>
+        </li>
+        <li class="grp" style="background:var(--surface);border-radius:var(--radius-s)">
+          <svg class="i" style="width:14px;height:14px"><use href="#i-grip"/></svg>
+          <svg class="i" style="width:14px;height:14px;color:var(--muted)"><use href="#i-chev-r"/></svg>
+          <span class="gap" style="background:var(--s2)"></span><span class="gname">Reading</span><span class="n">5 · collapsed</span>
+        </li>
+        <li class="grp" style="background:var(--surface);border-radius:var(--radius-s)">
+          <svg class="i" style="width:14px;height:14px"><use href="#i-grip"/></svg>
+          <svg class="i" style="width:14px;height:14px;color:var(--muted)"><use href="#i-chev-r"/></svg>
+          <span class="gap" style="background:var(--line-strong)"></span><span class="gname">Ungrouped</span><span class="n">7 · collapsed</span>
+        </li>
+      </ul>
+      <div class="pfoot">
+        <span class="tlink">Group 6 ungrouped by site</span>
+        <span class="grow"></span>
+        <button class="btn btn-g" style="padding:7px 11px;font-size:11px">Discard group</button>
+      </div>
+    </div>
+  </div>
+  <div class="note"><b>groups:</b> drag grip on the group header, chevron collapse, group colour as a dot plus a name (never colour alone), the row being dragged carries the drop outline, and the drop hint states how many tabs are being moved. “Discard group” keeps the tabs.</div>
+</section>
+
+<!-- ============ 5. EMPTY ============ -->
+<section class="board" id="empty" data-board="empty" style="--w:380px">
+  <header><b>Empty — this window</b><code>380×480</code></header>
+  <div class="artboard" style="width:380px;height:480px">
+    <div class="pop">
+      <header class="hd">
+        <div class="brand"><svg class="i i-l"><use href="#i-cabinet"/></svg><h2>Tab Cabinet</h2></div>
+        <div class="hact">
+          <button class="ibtn" aria-label="Sort by recent" aria-disabled="true"><svg class="i"><use href="#i-sort"/></svg></button>
+          <button class="ibtn" aria-label="Settings"><svg class="i"><use href="#i-sliders"/></svg></button>
+        </div>
+      </header>
+      <div class="psearch" style="opacity:.55"><svg class="i"><use href="#i-search"/></svg><input placeholder="Search tabs, URLs, groups" aria-disabled="true"><span class="kbd">⌘K</span></div>
+      <div class="emptywrap">
+        <svg width="132" height="96" viewBox="0 0 132 96" role="img" aria-label="An open, empty drawer">
+          <g stroke="var(--line-strong)" fill="none" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+            <rect x="14" y="10" width="104" height="52" rx="4"/>
+            <path d="M14 30h104"/>
+            <path d="M24 62h10M98 62h10"/>
+            <rect x="24" y="62" width="84" height="24" rx="3" fill="var(--surface)"/>
+            <path d="M56 74h20"/>
+          </g>
+          <rect x="32" y="40" width="26" height="8" rx="2" fill="var(--accent-soft)" stroke="var(--accent)" stroke-width="1.5"/>
+          <rect x="62" y="40" width="26" height="8" rx="2" fill="none" stroke="var(--line-strong)" stroke-width="1.5" stroke-dasharray="3 3"/>
+        </svg>
+        <h3>Nothing open in this window.</h3>
+        <p>18 tabs are still live in 3 other windows — your work is not lost.</p>
+        <div class="bar">
+          <button class="btn btn-p"><svg class="i" style="vertical-align:-3px;margin-right:5px"><use href="#i-plus"/></svg>Open a new tab</button>
+          <button class="btn btn-g"><svg class="i" style="vertical-align:-3px;margin-right:5px"><use href="#i-restore"/></svg>Restore last 6 closed</button>
+        </div>
+      </div>
+      <div class="pfoot">
+        <span>Window 2 · 7 tabs</span>
+        <span class="grow"></span>
+        <span>Window 3 · 11 tabs</span>
+      </div>
+    </div>
+  </div>
+  <div class="note"><b>empty:</b> first-run / all-closed window. The drawer is drawn, not a grey box; there is one primary action and a real recovery path (`⌘⇧T` equivalent) plus where the other tabs actually are. Search stays visible but disabled.</div>
+</section>
+
+<!-- ============ 6. ERROR ============ -->
+<section class="board" id="error" data-board="error" style="--w:380px">
+  <header><b>Error — no access to this window</b><code>380×480</code></header>
+  <div class="artboard" style="width:380px;height:480px">
+    <div class="pop">
+      <header class="hd">
+        <div class="brand"><svg class="i i-l"><use href="#i-cabinet"/></svg><h2>Tab Cabinet</h2></div>
+        <div class="hact"><button class="ibtn" aria-label="Settings"><svg class="i"><use href="#i-sliders"/></svg></button></div>
+      </header>
+      <div class="skl" style="margin:0 14px 10px;opacity:.5" aria-hidden="true">
+        <div class="sklrow"><span class="bx"></span><span><span class="bar-s w1" style="display:block"></span></span><span class="bar-s" style="width:32px"></span></div>
+        <div class="sklrow"><span class="bx"></span><span><span class="bar-s w3" style="display:block"></span></span><span class="bar-s" style="width:32px"></span></div>
+        <div class="sklrow"><span class="bx"></span><span><span class="bar-s w2" style="display:block"></span></span><span class="bar-s" style="width:32px"></span></div>
+      </div>
+      <div class="errwrap" style="position:relative">
+        <div class="errcard">
+          <div class="hh"><svg class="i i-l"><use href="#i-shield"/></svg>Can't read this window's tabs</div>
+          <p>Tab Cabinet needs permission to see titles and URLs. The 9 tabs in this window are still open — they are just hidden from this list.</p>
+          <div class="code">runtime.lastError: "tabs" permission not granted for this window (edge case: chrome://extensions pages are always off-limits)</div>
+          <div class="bar">
+            <button class="btn btn-p"><svg class="i" style="vertical-align:-3px;margin-right:5px"><use href="#i-shield"/></svg>Grant access</button>
+            <button class="btn btn-g"><svg class="i" style="vertical-align:-3px;margin-right:5px"><use href="#i-refresh"/></svg>Retry</button>
+          </div>
+          <p style="margin-top:8px"><span class="tlink">Open the permissions page</span> · Retry runs automatically when access returns, or when you are back online.</p>
+        </div>
+      </div>
+      <div class="pfoot">
+        <span>Last sync 14:02</span>
+        <span class="grow"></span>
+        <span class="tlink">Send diagnostics</span>
+      </div>
+    </div>
+  </div>
+  <div class="note"><b>error:</b> permission failure with the list left as a dimmed skeleton so the shape of what is missing stays visible; the raw error is quoted in mono for support, and the recovery is one button plus a documented automatic retry.</div>
+</section>
+
+<!-- ============ 7. DARK ============ -->
+<section class="board" id="dark" data-board="dark" style="--w:380px">
+  <header><b>Graphite theme (own design, not an inversion)</b><code>380×620</code></header>
+  <div class="artboard t-graphite" style="width:380px;height:620px">
+    <div class="pop">
+      <header class="hd">
+        <div class="brand"><svg class="i i-l"><use href="#i-cabinet"/></svg><h2>Tab Cabinet</h2></div>
+        <div class="hact">
+          <button class="ibtn is-pressed" aria-label="Sort by recent"><svg class="i"><use href="#i-sort"/></svg></button>
+          <button class="ibtn" aria-label="Settings"><svg class="i"><use href="#i-sliders"/></svg></button>
+        </div>
+      </header>
+      <div class="tally">
+        <span class="bignum">18</span>
+        <span class="unit">tabs in 3 groups<br>windows 1–3</span>
+        <span class="mem">412 MB reclaimable</span>
+      </div>
+      <div class="psearch"><svg class="i"><use href="#i-search"/></svg><input placeholder="Search tabs, URLs, groups" value=""><span class="kbd">⌘K</span></div>
+      <div class="chips">
+        <span class="chip is-on">All <span class="n">18</span></span>
+        <span class="chip"><span class="dot"></span>Work <span class="n">6</span></span>
+        <span class="chip"><span class="dot" style="background:var(--s2)"></span>Reading <span class="n">5</span></span>
+        <span class="chip sort">Recent <svg class="i" style="width:12px;height:12px"><use href="#i-chev"/></svg></span>
+      </div>
+      <ul class="plist">
+        <li class="grp"><svg class="i" style="width:14px;height:14px"><use href="#i-chev"/></svg><span class="gap"></span><span class="gname">Work — Tidewell console</span><span class="n">6</span></li>
+        <li class="row is-current">
+          <span class="fold"></span>
+          <span class="mark" style="--tint:var(--s1);color:var(--dk-bg)">A</span>
+          <span class="rt"><span class="ttl">Deployments · acme-console</span><span class="host">console.acme.io/eu-west-1/deploys</span></span>
+          <span class="meta">2m</span><span class="x"><svg class="i"><use href="#i-x"/></svg></span>
+        </li>
+        <li class="row">
+          <span class="mark" style="--tint:var(--s3);color:var(--dk-bg)">S</span>
+          <span class="rt"><span class="ttl">Incident 4821 — elevated 5xx on edge-eu</span><span class="host">status.acme.io/incidents/4821</span></span>
+          <span class="meta"><svg class="i"><use href="#i-sound"/></svg>12m</span><span class="x hold"><svg class="i"><use href="#i-x"/></svg></span>
+        </li>
+        <li class="row">
+          <span class="mark" style="--tint:var(--s2);color:var(--dk-bg)">T</span>
+          <span class="rt"><span class="ttl">The cost of a tab, a decade later</span><span class="host">longreads.example.org/features/tabs</span></span>
+          <span class="meta">Yesterday</span><span class="x hold"><svg class="i"><use href="#i-x"/></svg></span>
+        </li>
+        <li class="grp"><svg class="i" style="width:14px;height:14px"><use href="#i-chev-r"/></svg><span class="gap" style="background:var(--s2)"></span><span class="gname">Reading</span><span class="n">5 · collapsed</span></li>
+        <li class="row">
+          <span class="mark" style="--tint:var(--dk-line);color:var(--dk-muted)">U</span>
+          <span class="rt"><span class="ttl">Settings — Tab Cabinet</span><span class="host">extension://tab-cabinet/options</span></span>
+          <span class="meta">4d</span><span class="x hold"><svg class="i"><use href="#i-x"/></svg></span>
+        </li>
+      </ul>
+      <div style="padding:10px 14px;border-top:1px solid var(--line);background:var(--surface)">
+        <div style="font-size:11px;color:var(--muted);margin-bottom:6px">Theme · follows system by default</div>
+        <div style="display:flex;gap:6px;align-items:center">
+          <span style="display:flex;align-items:center;gap:5px;font-size:11px;padding:4px 8px;border:1px solid var(--accent);border-radius:var(--radius-pill);color:var(--accent);font-weight:700"><span style="width:10px;height:10px;border-radius:999px;background:var(--accent)"></span>Graphite</span>
+          <span style="display:flex;align-items:center;gap:5px;font-size:11px;padding:4px 8px;border:1px solid var(--line);border-radius:var(--radius-pill)"><span style="width:10px;height:10px;border-radius:999px;background:#f6f3ef;border:1px solid var(--line-strong)"></span>Bone</span>
+          <span style="display:flex;align-items:center;gap:5px;font-size:11px;padding:4px 8px;border:1px solid var(--line);border-radius:var(--radius-pill)"><span style="width:10px;height:10px;border-radius:999px;background:linear-gradient(90deg,#f6f3ef 50%,#151310 50%);border:1px solid var(--line-strong)"></span>System</span>
+        </div>
+        <div style="display:flex;gap:6px;align-items:center;margin-top:7px;font-size:11px;color:var(--muted)">
+          Accent
+          <span style="width:14px;height:14px;border-radius:999px;background:var(--dk-accent);box-shadow:inset 0 0 0 2px var(--surface)"></span>
+          <span style="width:14px;height:14px;border-radius:999px;background:#80bb8c"></span>
+          <span style="width:14px;height:14px;border-radius:999px;background:#72b4da"></span>
+          <span style="width:14px;height:14px;border-radius:999px;background:#ec8c82"></span>
+          <span class="grow" style="flex:1"></span>Brass · Moss · Ink · Clay
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="note"><b>dark:</b> the graphite set is designed separately — surface steps are closer together, the accent lifts to <span class="mono">#d0a257</span> and the paper metaphor survives. Theme picker and accent swatches are live: the “Bone / Graphite” buttons in the canvas chrome re-skin every board.</div>
+</section>
+
+<!-- ============ 8. TOKENS ============ -->
+<section class="board" id="tokens" data-board="tokens" style="--w:680px">
+  <header><b>Tokens, type &amp; states</b><code>680×700</code></header>
+  <div class="artboard" style="width:680px;height:700px">
+    <div class="doc">
+      <p class="eyebrow">Everything above is built from these values. Contrast ratios are measured (contrast.py), not estimated.</p>
+      <div class="cols">
+        <div>
+          <h3>Palette — bone (light)</h3>
+          <div class="sw">
+            <div><div class="chipc" style="background:var(--bg)"></div><div class="lb"><b>--bg</b>#f6f3ef</div></div>
+            <div><div class="chipc" style="background:var(--surface)"></div><div class="lb"><b>--surface</b>#fcf9f5</div></div>
+            <div><div class="chipc" style="background:var(--raised)"></div><div class="lb"><b>--raised</b>#fffdfb</div></div>
+            <div><div class="chipc" style="background:var(--line)"></div><div class="lb"><b>--line</b>#dad7d2</div></div>
+            <div><div class="chipc" style="background:var(--text)"></div><div class="lb"><b>--text</b>#211f1b</div></div>
+            <div><div class="chipc" style="background:var(--muted)"></div><div class="lb"><b>--muted</b>#6c6863</div></div>
+            <div><div class="chipc" style="background:var(--accent)"></div><div class="lb"><b>--accent</b>#7c5500</div></div>
+            <div><div class="chipc" style="background:var(--danger)"></div><div class="lb"><b>--danger</b>#953e37</div></div>
+          </div>
+          <p style="margin-top:6px">text/bg <b>14.87:1</b> · text/surface <b>15.67:1</b> · muted/surface <b>5.27:1</b> · accent/surface <b>6.34:1</b> · danger/surface <b>6.62:1</b>. Group dots use the categorical series <span class="mono">#714e01 #03798e #7d3c5a #587738 #3e528b #9a5839</span>, each also labelled by name.</p>
+          <h3>Palette — graphite (dark)</h3>
+          <div class="sw">
+            <div><div class="chipc" style="background:var(--dk-bg)"></div><div class="lb"><b>--bg</b>#110f0d</div></div>
+            <div><div class="chipc" style="background:var(--dk-surface)"></div><div class="lb"><b>--surface</b>#151310</div></div>
+            <div><div class="chipc" style="background:var(--dk-raised)"></div><div class="lb"><b>--raised</b>#191714</div></div>
+            <div><div class="chipc" style="background:var(--dk-line)"></div><div class="lb"><b>--line</b>#24211e</div></div>
+            <div><div class="chipc" style="background:var(--dk-text)"></div><div class="lb"><b>--text</b>#e1ddd9</div></div>
+            <div><div class="chipc" style="background:var(--dk-muted)"></div><div class="lb"><b>--muted</b>#a29e98</div></div>
+            <div><div class="chipc" style="background:var(--dk-accent)"></div><div class="lb"><b>--accent</b>#d0a257</div></div>
+            <div><div class="chipc" style="background:var(--dk-danger)"></div><div class="lb"><b>--danger</b>#ec8c82</div></div>
+          </div>
+          <p style="margin-top:6px">text/bg <b>14.16:1</b> · muted/surface <b>6.96:1</b> · accent/surface <b>7.94:1</b> · danger/surface <b>7.63:1</b>. Status never rides on hue alone: audio, pin, drop and error each carry an icon or a word.</p>
+          <h3>Radius · spacing · motion</h3>
+          <p>radius <span class="mono">4 / 8 / 14 / pill</span> (row 4, control 8, card 14, chips &amp; dots pill) · spacing <span class="mono">4 / 6 / 8 / 12 / 18 / 24</span> (6 inside a row cluster, 18 between groups) · durations <span class="mono">120 / 200 / 300 ms</span> · easing <span class="mono">cubic-bezier(.2,.8,.2,1)</span> in, <span class="mono">(.4,0,1,1)</span> out · one separation device per level: fill step, 1 px hairline, or ring — never all three.</p>
+        </div>
+        <div>
+          <h3>Type scale</h3>
+          <div class="typerow"><span class="rg">20 display</span><span style="font:600 20px/1.1 var(--font-display);font-variant-numeric:tabular-nums">18 tabs</span></div>
+          <div class="typerow"><span class="rg">17 display-2</span><span style="font:600 17px/1.2 var(--font-display)">Nothing open in this window.</span></div>
+          <div class="typerow"><span class="rg">14 ui / row</span><span style="font-size:14px">Deployments · acme-console</span></div>
+          <div class="typerow"><span class="rg">11.5 label</span><span style="font-size:11.5px;font-weight:700">Work — Tidewell console</span></div>
+          <div class="typerow"><span class="rg">11 mono host</span><span class="mono" style="font-size:11px">console.acme.io/eu-west-1/deploys</span></div>
+          <h3>Candidate faces — same string, installed locally</h3>
+          <div class="fontrow"><span class="fn">Cantarell ✔ rec.</span><span class="fx" style="font-family:Cantarell">18 tabs · ĞÜŞİÖÇ ğüşıöç · 0123456789 · İstanbul</span></div>
+          <div class="fontrow"><span class="fn">Bricolage Grotesque</span><span class="fx" style="font-family:'Bricolage Grotesque'">18 tabs · ĞÜŞİÖÇ ğüşıöç · 0123456789 · İstanbul</span></div>
+          <div class="fontrow"><span class="fn">Noto Sans</span><span class="fx" style="font-family:'Noto Sans'">18 tabs · ĞÜŞİÖÇ ğüşıöç · 0123456789 · İstanbul</span></div>
+          <div class="fontrow"><span class="fn">Nimbus Sans</span><span class="fx" style="font-family:'Nimbus Sans'">18 tabs · ĞÜŞİÖÇ ğüşıöç · 0123456789 · İstanbul</span></div>
+          <div class="fontrow"><span class="fn">DejaVu Sans</span><span class="fx" style="font-family:'DejaVu Sans'">18 tabs · ĞÜŞİÖÇ ğüşıöç · 0123456789 · İstanbul</span></div>
+          <div class="fontrow"><span class="fn">JetBrains Mono</span><span class="fx mono" style="font-size:12px">18 tabs · ĞÜŞİÖÇ ğüşıöç · 0123456789 · İstanbul</span></div>
+          <p style="margin-top:5px">Cantarell wins on density at 11–14 px and renders the Turkish set without fallback; Bricolage Grotesque carries the one hero numeral; JetBrains Mono is only for hosts, URLs and the raw error line.</p>
+          <h3>Icon set — 16 px grid, 1.5 px stroke, round caps</h3>
+          <div class="icongrid">
+            <figure><svg class="i i-l"><use href="#i-search"/></svg><figcaption>search</figcaption></figure>
+            <figure><svg class="i i-l"><use href="#i-x"/></svg><figcaption>close</figcaption></figure>
+            <figure><svg class="i i-l"><use href="#i-chev"/></svg><figcaption>collapse</figcaption></figure>
+            <figure><svg class="i i-l"><use href="#i-grip"/></svg><figcaption>drag</figcaption></figure>
+            <figure><svg class="i i-l"><use href="#i-sound"/></svg><figcaption>playing</figcaption></figure>
+            <figure><svg class="i i-l"><use href="#i-pin"/></svg><figcaption>pinned</figcaption></figure>
+            <figure><svg class="i i-l"><use href="#i-shield"/></svg><figcaption>no access</figcaption></figure>
+            <figure><svg class="i i-l"><use href="#i-restore"/></svg><figcaption>restore</figcaption></figure>
+          </div>
+          <h3>State coverage</h3>
+          <p>idle · hover · focus-visible (2 px brass ring) · pressed · current tab · grouped · collapsed · expanded · search hit · search miss · loading skeleton · empty · error / no permission · disabled · offline (same error card, different reason line) · long text clamped · dark theme.</p>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="note"><b>tokens:</b> the handoff source. Palette (16 tokens), type scale, radius and spacing ladders, motion constants, icon set and the list of states each component must implement.</div>
+</section>
+
+</div>
+</div>
+<script>
+(function(){
+  var q=new URLSearchParams(location.search);
+  function theme(id){
+    document.documentElement.dataset.theme=(id==='graphite')?'graphite':'bone';
+    document.querySelectorAll('.themes button').forEach(function(b){b.setAttribute('aria-pressed', b.dataset.theme===id)});
+    try{localStorage.setItem('canvas-theme',id)}catch(e){}
+  }
+  document.querySelectorAll('.themes button').forEach(function(b){b.onclick=function(){theme(b.dataset.theme)}});
+  var th=q.get('theme'); try{th=th||localStorage.getItem('canvas-theme')}catch(e){}
+  theme(th||'bone');
+  var only=q.get('only');
+  if(only){document.body.classList.add('only');var el=document.querySelector('[data-board="'+only+'"]');if(el)el.classList.add('on');}
+})();
+</script>
+</body>
+</html<!-- cv-runtime -->
+<script>
+/* canvas-runtime: turns any page whose boards carry [data-board] into a pan/zoom infinite canvas.
+ * Injected inline by new-canvas.py / canvasify.py. No dependencies. Never needed by Claude's own Design canvas.
+ * Gestures: drag background = pan, wheel = pan (or zoom, toggle), ctrl/cmd+wheel or pinch = zoom,
+ * double-click background = fit all, F / expand button = focus a board, Esc = back, arrows = next/prev board in focus,
+ * 0 = fit all, 1 = 100%, + / - = zoom, download button = board as standalone HTML.
+ * URL: ?only=<id> single board (used by shoot.sh) · ?flat=1 classic scroll page · #<id> opens focused on a board.
+ */
+(function () {
+  if (window.__canvasRuntime) return;
+  window.__canvasRuntime = true;
+  var doc = document, root = doc.documentElement, body = doc.body;
+  var q = new URLSearchParams(location.search);
+  var all = [].slice.call(doc.querySelectorAll('[data-board]')).filter(function (b) { return !b.parentElement.closest('[data-board]'); });
+  if (!all.length) return;
+  var SKIP = /^(SCRIPT|STYLE|LINK|META|TITLE|TEMPLATE)$/;
+  var reduce = window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+  /* ---------- ?only=<id>: show one board, nothing else (screenshots) ---------- */
+  var only = q.get('only');
+  if (only) {
+    var target = all.filter(function (b) { return b.dataset.board === only; })[0];
+    if (target) {
+      all.forEach(function (b) { if (b !== target) b.style.display = 'none'; });
+      for (var n = target; n && n !== body; n = n.parentElement) {
+        [].forEach.call(n.parentElement.children, function (s) { if (s !== n && !SKIP.test(s.tagName)) s.style.display = 'none'; });
+      }
+      root.dataset.cv = 'only';
+    }
+    return;
+  }
+  if (q.get('flat')) { root.dataset.cv = 'flat'; return; }
+
+  /* ---------- structure: world = lowest common ancestor of the boards ---------- */
+  function lca(els) {
+    var a = els[0].parentElement;
+    while (a && !els.every(function (e) { return a.contains(e); })) a = a.parentElement;
+    return a;
+  }
+  var A = lca(all);
+  if (!A || A === body || A === root) {
+    A = doc.createElement('div');
+    all[0].parentElement.insertBefore(A, all[0]);
+    all.forEach(function (b) { A.appendChild(b); });
+  }
+  var cs0 = getComputedStyle(body), pageBg = cs0.backgroundColor, pageFg = cs0.color;
+  var pageBgOrig = pageBg;
+  if (/rgba\(0, 0, 0, 0\)|transparent/.test(pageBgOrig)) pageBgOrig = getComputedStyle(root).backgroundColor;
+  if (/rgba\(0, 0, 0, 0\)|transparent/.test(pageBgOrig)) pageBgOrig = '#ffffff';
+  pageBg = '#0f1211'; pageFg = 'rgb(214, 220, 217)';
+
+  var chain = [];
+  for (var c = A; c && c !== body; c = c.parentElement) chain.push(c);
+  var chrome = [];
+  chain.forEach(function (nd) {
+    [].forEach.call(nd.parentElement.children, function (s) {
+      if (s !== nd && chain.indexOf(s) < 0 && !SKIP.test(s.tagName) && chrome.indexOf(s) < 0) chrome.push(s);
+    });
+  });
+
+  /* ---------- CSS ---------- */
+  var css = [
+    'html.cv,html.cv body{margin:0!important;padding:0!important;height:100%!important;overflow:hidden!important;overscroll-behavior:none;background:' + pageBg + '!important;touch-action:none}',
+    '.cv-anc{position:fixed!important;inset:0!important;width:auto!important;height:auto!important;max-width:none!important;max-height:none!important;margin:0!important;padding:0!important;overflow:hidden!important;border:0!important;background:transparent!important;transform:none!important;display:block!important}',
+    '.cv-world{position:absolute!important;left:0!important;top:0!important;margin:0!important;padding:48px!important;max-width:none!important;transform-origin:0 0;will-change:transform;box-sizing:content-box!important}',
+    '.cv-world.cv-anim{transition:transform .26s cubic-bezier(.2,.8,.2,1)}',
+    '.cv-world>*{max-width:none}',
+    '.cv-board-head{display:flex;align-items:center;gap:8px}',
+    '.cv-tools{margin-left:auto;display:inline-flex;gap:4px}',
+    '.cv-btn{all:unset;box-sizing:border-box;display:inline-grid;place-items:center;width:28px;height:28px;border-radius:7px;cursor:pointer;opacity:.7;color:inherit}',
+    '.cv-btn:hover,.cv-btn:focus-visible{opacity:1;background:rgba(127,127,127,.22)}',
+    '.cv-btn svg{width:16px;height:16px;stroke:currentColor;fill:none;stroke-width:1.6;stroke-linecap:round;stroke-linejoin:round}',
+    '.cv-meta,.cv-meta *{color:#aab3af!important}.cv-meta b,.cv-meta strong,.cv-board-head b{color:#e6ebe8!important}.cv-meta code{background:rgba(255,255,255,.08)!important}',
+    '.cv-art{transform:translateZ(0);box-shadow:0 8px 40px rgba(0,0,0,.45)!important;border-color:rgba(255,255,255,.08)!important}',
+    'body.cv-focus [data-board]:not(.cv-on){opacity:.18;transition:opacity .2s}',
+    '[data-board]{transition:opacity .2s}',
+    '#cv-hud{position:fixed;left:12px;top:12px;z-index:30;max-width:min(420px,calc(100vw - 24px));max-height:calc(100vh - 90px);overflow:auto;box-sizing:border-box;padding:12px 14px;border-radius:12px;border:1px solid rgba(127,127,127,.35);background:' + pageBg + ';color:' + pageFg + ';font:13px/1.5 system-ui,sans-serif;box-shadow:0 6px 24px rgba(0,0,0,.25)}',
+    '#cv-hud.cv-min{padding:6px 10px;cursor:pointer}#cv-hud.cv-min>*:not(.cv-hud-t){display:none!important}',
+    '#cv-hud,#cv-hud *{color:#d6dcd9!important}#cv-hud a{text-decoration:none}#cv-hud button{border-color:#3a4240!important}#cv-hud h1{font-size:16px!important;margin:0 0 4px!important}#cv-hud .cv-hud-t{display:flex;align-items:center;gap:8px;margin:0 0 6px;font-weight:600;font-size:12px;opacity:.8}#cv-hud.cv-min .cv-hud-t{margin:0}',
+    '#cv-hud>*{margin-inline:0!important;max-width:none!important}',
+    '#cv-bar{position:fixed;left:50%;bottom:14px;transform:translateX(-50%);z-index:31;display:flex;align-items:center;gap:2px;padding:4px;border-radius:12px;background:rgba(18,20,19,.94);color:#e6e9e7;border:1px solid #2d3331;font:12px system-ui,sans-serif;box-shadow:0 6px 24px rgba(0,0,0,.35)}',
+    '#cv-bar .cv-btn{width:32px;height:32px;opacity:.9}#cv-bar .cv-zoom{min-width:48px;text-align:center;font-variant-numeric:tabular-nums;opacity:.85}',
+    '#cv-bar .cv-txt{all:unset;box-sizing:border-box;padding:0 10px;height:32px;line-height:32px;border-radius:7px;cursor:pointer;opacity:.9;font:12px/32px system-ui,sans-serif}#cv-bar .cv-txt:hover,#cv-bar .cv-txt:focus-visible{background:rgba(255,255,255,.12)}',
+    '#cv-bar .cv-sep{width:1px;height:18px;background:#2d3331;margin:0 4px}',
+    '#cv-list{position:fixed;left:50%;bottom:62px;transform:translateX(-50%);z-index:32;max-height:50vh;width:min(360px,calc(100vw - 24px));overflow:auto;padding:6px;border-radius:12px;background:rgba(18,20,19,.97);color:#e6e9e7;border:1px solid #2d3331;font:13px system-ui,sans-serif;box-shadow:0 10px 30px rgba(0,0,0,.4)}',
+    '#cv-list button{all:unset;box-sizing:border-box;display:flex;width:100%;gap:10px;padding:7px 10px;border-radius:7px;cursor:pointer}#cv-list button:hover,#cv-list button:focus-visible{background:rgba(255,255,255,.12)}#cv-list small{margin-left:auto;opacity:.55;font-variant-numeric:tabular-nums}',
+    '#cv-hint{position:fixed;right:12px;bottom:14px;z-index:30;font:11px system-ui,sans-serif;color:' + pageFg + ';opacity:.5;max-width:40vw;text-align:right}',
+    '@media (max-width:640px){#cv-hint{display:none}}',
+    'html.cv-bare #cv-hud,html.cv-bare #cv-bar,html.cv-bare #cv-hint{display:none!important}'
+  ].join('\n');
+  var st = doc.createElement('style'); st.id = 'cv-runtime-style'; st.textContent = css; doc.head.appendChild(st);
+
+  root.classList.add('cv'); if (q.get('bare')) root.classList.add('cv-bare');
+  chain.forEach(function (nd, i) { nd.classList.add(i === 0 ? 'cv-world' : 'cv-anc'); });
+  if (!all.length) return;
+  if (getComputedStyle(A).display === 'block') { A.style.display = 'flex'; A.style.flexWrap = 'wrap'; A.style.alignItems = 'flex-start'; A.style.gap = '56px 40px'; }
+  var area = 0;
+  all.forEach(function (b) { var r = b.getBoundingClientRect(); area += (r.width + 40) * (r.height + 80); });
+  var W = Math.max(1400, Math.round(Math.sqrt(area * (innerWidth / Math.max(400, innerHeight))) * 1.08));
+  A.style.width = W + 'px';
+
+  /* ---------- HUD (page chrome moved here), toolbar ---------- */
+  var hud = doc.createElement('div'); hud.id = 'cv-hud';
+  var hudT = doc.createElement('div'); hudT.className = 'cv-hud-t'; hudT.innerHTML = '<span>Canvas · ' + all.length + ' tahta</span><span style="margin-left:auto;opacity:.6">▾</span>';
+  hud.appendChild(hudT); chrome.forEach(function (s) { hud.appendChild(s); });
+  hudT.addEventListener('click', function () { hud.classList.toggle('cv-min'); });
+  body.appendChild(hud);
+  hud.classList.add('cv-min');
+
+  var ICON = {
+    expand: '<svg viewBox="0 0 16 16"><path d="M9.5 2.5h4v4M6.5 13.5h-4v-4M13.5 2.5 9 7M2.5 13.5 7 9"/></svg>',
+    dl: '<svg viewBox="0 0 16 16"><path d="M8 2.5v7.5M4.8 7 8 10.2 11.2 7M3 13.5h10"/></svg>',
+    minus: '<svg viewBox="0 0 16 16"><path d="M3.5 8h9"/></svg>',
+    plus: '<svg viewBox="0 0 16 16"><path d="M3.5 8h9M8 3.5v9"/></svg>',
+    fit: '<svg viewBox="0 0 16 16"><path d="M2.5 6V2.5H6M10 2.5h3.5V6M13.5 10v3.5H10M6 13.5H2.5V10"/></svg>'
+  };
+  var bar = doc.createElement('div'); bar.id = 'cv-bar'; bar.setAttribute('role', 'toolbar'); bar.setAttribute('aria-label', 'Canvas');
+  bar.innerHTML = '<button class="cv-btn" data-a="out" title="Uzaklaştır (-)">' + ICON.minus + '</button><span class="cv-zoom" id="cv-z">100%</span><button class="cv-btn" data-a="in" title="Yakınlaştır (+)">' + ICON.plus + '</button><span class="cv-sep"></span><button class="cv-btn" data-a="fit" title="Hepsini sığdır (0)">' + ICON.fit + '</button><button class="cv-txt" data-a="one" title="%100 (1)">1:1</button><span class="cv-sep"></span><button class="cv-txt" data-a="list" title="Tahtalar">Tahtalar</button><button class="cv-txt" data-a="wheel" title="Tekerlek davranışı">Tekerlek: kaydır</button>';
+  body.appendChild(bar);
+  var hint = doc.createElement('div'); hint.id = 'cv-hint'; hint.textContent = 'Sürükle: gez · Ctrl+tekerlek / sıkıştır: yakınlaştır · çift tık: hepsi · F: odakla';
+  body.appendChild(hint);
+  var list = null;
+
+  /* ---------- boards: header + tools ---------- */
+  all.forEach(function (b) {
+    var big = null, ba = 0;
+    [].forEach.call(b.children, function (c) { var r = c.getBoundingClientRect(), a = r.width * r.height; if (a > ba) { ba = a; big = c; } });
+    [].forEach.call(b.children, function (c) { c.classList.add(c === big ? 'cv-art' : 'cv-meta'); });
+  });
+  function titleOf(b) {
+    if (b.dataset.title) return b.dataset.title;
+    var h = b.querySelector(':scope > header b, :scope > header, :scope > h2, :scope > h3');
+    return (h && h.textContent.trim().split('\n')[0].slice(0, 60)) || b.dataset.board;
+  }
+  all.forEach(function (b) {
+    var h = b.querySelector(':scope > header');
+    if (!h) { h = doc.createElement('header'); h.textContent = titleOf(b); h.style.cssText = 'font:600 13px system-ui,sans-serif;margin-bottom:8px'; b.insertBefore(h, b.firstChild); }
+    h.classList.add('cv-board-head');
+    var t = doc.createElement('span'); t.className = 'cv-tools';
+    t.innerHTML = '<button class="cv-btn" data-a="focus" title="Genişlet (F)" aria-label="Genişlet">' + ICON.expand + '</button><button class="cv-btn" data-a="dl" title="Tahtayı HTML olarak indir" aria-label="İndir">' + ICON.dl + '</button>';
+    h.appendChild(t);
+    h.addEventListener('dblclick', function (e) { if (!e.target.closest('.cv-btn')) focusBoard(b); });
+  });
+
+  /* ---------- view math ---------- */
+  var v = { x: 0, y: 0, k: 1 }, rects = [], vw = root.clientWidth || innerWidth, vh = root.clientHeight || innerHeight, focused = null, wheelZoom = false;
+  var LS = 'cv:' + location.pathname;
+  function unscroll() { chain.concat([root, body]).forEach(function (n) { if (n.scrollLeft || n.scrollTop) { n.scrollLeft = 0; n.scrollTop = 0; } }); }
+  doc.addEventListener('scroll', unscroll, true); window.addEventListener('hashchange', function () { unscroll(); var id = location.hash.slice(1), b = all.filter(function (x) { return x.dataset.board === id; })[0]; if (b) focusBoard(b); });
+  function apply(anim) {
+    unscroll();
+    if (anim && !reduce) A.classList.add('cv-anim'); else A.classList.remove('cv-anim');
+    A.style.transform = 'translate(' + v.x + 'px,' + v.y + 'px) scale(' + v.k + ')';
+    root.style.backgroundImage = 'radial-gradient(circle, ' + dot() + ' 1px, transparent 1.4px)';
+    var s = Math.max(8, 28 * v.k); root.style.backgroundSize = s + 'px ' + s + 'px'; root.style.backgroundPosition = v.x + 'px ' + v.y + 'px';
+    var z = doc.getElementById('cv-z'); if (z) z.textContent = Math.round(v.k * 100) + '%';
+  }
+  var dotC = null;
+  function dot() { if (!dotC) { var m = /\d+/g, n = (pageFg.match(m) || [200, 200, 200]); dotC = 'rgba(' + n[0] + ',' + n[1] + ',' + n[2] + ',.13)'; } return dotC; }
+  function measure() {
+    var keep = A.style.transform, kc = A.className; A.classList.remove('cv-anim'); A.style.transform = 'none';
+    var o = A.getBoundingClientRect(); rects = all.map(function (b) { var r = b.getBoundingClientRect(); return { el: b, x: r.left - o.left, y: r.top - o.top, w: r.width, h: r.height }; });
+    A.style.transform = keep; A.className = kc;
+  }
+  function bbox() {
+    var x0 = 1e9, y0 = 1e9, x1 = -1e9, y1 = -1e9;
+    rects.forEach(function (r) { x0 = Math.min(x0, r.x); y0 = Math.min(y0, r.y); x1 = Math.max(x1, r.x + r.w); y1 = Math.max(y1, r.y + r.h); });
+    return { x: x0, y: y0, w: x1 - x0, h: y1 - y0 };
+  }
+  function fitRect(r, pad, max) {
+    pad = pad == null ? 56 : pad; var k = Math.min((vw - pad * 2) / r.w, (vh - pad * 2) / r.h, max || 1);
+    k = Math.max(0.04, k); v.k = k; v.x = (vw - r.w * k) / 2 - r.x * k; v.y = (vh - r.h * k) / 2 - r.y * k;
+  }
+  function fitAll(anim) { exitFocus(true); fitRect(bbox(), 72, 1); apply(anim); save(); }
+  function rectOf(b) { return rects.filter(function (r) { return r.el === b; })[0]; }
+  function focusBoard(b, noDim, instant) {
+    var r = rectOf(b); if (!r) return;
+    focused = b; all.forEach(function (x) { x.classList.toggle('cv-on', x === b); });
+    body.classList.toggle('cv-focus', !noDim);
+    var head = 40, rr = { x: r.x, y: r.y - 0, w: r.w, h: r.h + head };
+    fitRect(rr, 64, 2); apply(!instant); save();
+    try { history.replaceState(null, '', '#' + b.dataset.board); } catch (e) {}
+  }
+  function exitFocus(silent) {
+    if (!focused) return; focused = null; body.classList.remove('cv-focus'); all.forEach(function (x) { x.classList.remove('cv-on'); });
+    try { history.replaceState(null, '', location.pathname + location.search); } catch (e) {}
+    if (!silent) fitAll(true);
+  }
+  function zoomAt(cx, cy, f, anim) {
+    var nk = Math.min(4, Math.max(0.04, v.k * f)), r = nk / v.k;
+    v.x = cx - (cx - v.x) * r; v.y = cy - (cy - v.y) * r; v.k = nk; apply(anim); save();
+  }
+  function save() { try { localStorage.setItem(LS, JSON.stringify(v)); } catch (e) {} }
+  function step(dir) {
+    if (!focused) return; var i = all.indexOf(focused), j = Math.min(all.length - 1, Math.max(0, i + dir)); if (j !== i) focusBoard(all[j]);
+  }
+
+  /* ---------- download one board ---------- */
+  function download(b) {
+    var clone = b.cloneNode(true);
+    [].forEach.call(clone.querySelectorAll('.cv-tools'), function (n) { n.remove(); });
+    clone.classList.remove('cv-on'); clone.style.opacity = '';
+    var styles = [].map.call(doc.querySelectorAll('style,link[rel=stylesheet]'), function (n) { return n.id === 'cv-runtime-style' ? '' : n.outerHTML; }).join('\n');
+    var theme = root.getAttribute('data-theme') ? ' data-theme="' + root.getAttribute('data-theme') + '"' : '';
+    var html = '<!doctype html><html lang="' + (root.lang || 'tr') + '"' + theme + '><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>' + titleOf(b).replace(/</g, '&lt;') + '</title>' + styles + '<style>html,body{margin:0;padding:24px;background:' + pageBgOrig + '!important;height:auto!important;overflow:auto!important}</style></head><body>' + clone.outerHTML + '</body></html>';
+    var a = doc.createElement('a'); a.href = URL.createObjectURL(new Blob([html], { type: 'text/html' }));
+    a.download = (b.dataset.board || 'board') + '.html'; doc.body.appendChild(a); a.click(); setTimeout(function () { URL.revokeObjectURL(a.href); a.remove(); }, 500);
+  }
+
+  /* ---------- list popover ---------- */
+  function toggleList() {
+    if (list) { list.remove(); list = null; return; }
+    list = doc.createElement('div'); list.id = 'cv-list';
+    list.innerHTML = all.map(function (b, i) { return '<button data-i="' + i + '"><span>' + titleOf(b).replace(/</g, '&lt;') + '</span><small>' + Math.round(rectOf(b).w) + '×' + Math.round(rectOf(b).h) + '</small></button>'; }).join('');
+    list.addEventListener('click', function (e) { var bt = e.target.closest('button'); if (!bt) return; focusBoard(all[+bt.dataset.i], true); list.remove(); list = null; });
+    body.appendChild(list);
+  }
+
+  /* ---------- events ---------- */
+  doc.addEventListener('click', function (e) {
+    var bt = e.target.closest('.cv-btn,.cv-txt'); if (!bt) { if (list && !e.target.closest('#cv-list')) { list.remove(); list = null; } return; }
+    var a = bt.dataset.a, b = bt.closest('[data-board]');
+    if (a === 'focus') { if (focused === b) fitAll(true); else focusBoard(b); }
+    else if (a === 'dl') download(b);
+    else if (a === 'in') zoomAt(vw / 2, vh / 2, 1.25, true);
+    else if (a === 'out') zoomAt(vw / 2, vh / 2, 0.8, true);
+    else if (a === 'fit') fitAll(true);
+    else if (a === 'one') { exitFocus(true); zoomAt(vw / 2, vh / 2, 1 / v.k, true); }
+    else if (a === 'list') toggleList();
+    else if (a === 'wheel') { wheelZoom = !wheelZoom; bt.textContent = 'Tekerlek: ' + (wheelZoom ? 'yakınlaştır' : 'kaydır'); }
+  });
+  doc.addEventListener('wheel', function (e) {
+    if (e.target.closest('#cv-hud,#cv-list')) return;
+    var inScroll = false; for (var n = e.target; n && n !== body; n = n.parentElement) { if (n.scrollHeight > n.clientHeight + 2 && /(auto|scroll)/.test(getComputedStyle(n).overflowY) && !n.classList.contains('cv-anc')) { inScroll = true; break; } }
+    if (inScroll && !e.ctrlKey) return;
+    e.preventDefault();
+    var dy = e.deltaMode === 1 ? e.deltaY * 33 : e.deltaY, dx = e.deltaMode === 1 ? e.deltaX * 33 : e.deltaX;
+    if (e.ctrlKey || e.metaKey || wheelZoom) zoomAt(e.clientX, e.clientY, Math.exp(-dy * (e.ctrlKey ? 0.01 : 0.0016)));
+    else { if (e.shiftKey && !dx) { dx = dy; dy = 0; } v.x -= dx; v.y -= dy; apply(); save(); }
+    exitFocusDim();
+  }, { passive: false });
+  function exitFocusDim() { if (focused) { focused = null; body.classList.remove('cv-focus'); all.forEach(function (x) { x.classList.remove('cv-on'); }); } }
+
+  var ptrs = {}, drag = null, pinch = null, space = false;
+  function noPan(t) { return t.closest('#cv-hud,#cv-bar,#cv-list,.cv-btn,a,button,input,select,textarea,summary,label,[contenteditable]'); }
+  doc.addEventListener('pointerdown', function (e) {
+    if (noPan(e.target)) return;
+    var inBoard = e.target.closest('.artboard');
+    if (inBoard && !(space || e.button === 1 || e.altKey) && e.pointerType === 'mouse') return;
+    if (e.button > 1) return;
+    ptrs[e.pointerId] = { x: e.clientX, y: e.clientY };
+    var ids = Object.keys(ptrs);
+    if (ids.length === 2) { var p = ids.map(function (i) { return ptrs[i]; }); pinch = { d: Math.hypot(p[0].x - p[1].x, p[0].y - p[1].y), cx: (p[0].x + p[1].x) / 2, cy: (p[0].y + p[1].y) / 2 }; drag = null; }
+    else { drag = { x: e.clientX, y: e.clientY, vx: v.x, vy: v.y, moved: false }; }
+    doc.body.style.cursor = 'grabbing'; e.preventDefault();
+  });
+  window.addEventListener('pointermove', function (e) {
+    if (!ptrs[e.pointerId]) return; ptrs[e.pointerId] = { x: e.clientX, y: e.clientY };
+    var ids = Object.keys(ptrs);
+    if (ids.length >= 2 && pinch) {
+      var p = ids.slice(0, 2).map(function (i) { return ptrs[i]; }), d = Math.hypot(p[0].x - p[1].x, p[0].y - p[1].y), cx = (p[0].x + p[1].x) / 2, cy = (p[0].y + p[1].y) / 2;
+      v.x += cx - pinch.cx; v.y += cy - pinch.cy; zoomAt(cx, cy, d / pinch.d); pinch.d = d; pinch.cx = cx; pinch.cy = cy; exitFocusDim();
+    } else if (drag) {
+      var dx = e.clientX - drag.x, dy = e.clientY - drag.y; if (!drag.moved && Math.hypot(dx, dy) < 3) return; drag.moved = true;
+      v.x = drag.vx + dx; v.y = drag.vy + dy; apply(); exitFocusDim();
+    }
+  });
+  function up(e) { delete ptrs[e.pointerId]; if (Object.keys(ptrs).length < 2) pinch = null; if (!Object.keys(ptrs).length) { drag && save(); drag = null; doc.body.style.cursor = ''; } }
+  window.addEventListener('pointerup', up); window.addEventListener('pointercancel', up);
+  doc.addEventListener('dblclick', function (e) { if (!noPan(e.target) && !e.target.closest('.artboard') && !e.target.closest('[data-board]')) fitAll(true); });
+  doc.addEventListener('keydown', function (e) {
+    if (/INPUT|TEXTAREA|SELECT/.test(e.target.tagName) || e.target.isContentEditable || e.ctrlKey || e.metaKey) return;
+    var k = e.key;
+    if (k === ' ') { space = true; e.preventDefault(); }
+    else if (k === '0') fitAll(true);
+    else if (k === '1') { exitFocus(true); zoomAt(vw / 2, vh / 2, 1 / v.k, true); }
+    else if (k === '+' || k === '=') zoomAt(vw / 2, vh / 2, 1.25, true);
+    else if (k === '-' || k === '_') zoomAt(vw / 2, vh / 2, 0.8, true);
+    else if (k === 'Escape') { if (list) { list.remove(); list = null; } else if (focused) fitAll(true); }
+    else if (k === 'f' || k === 'F') { var cur = focused || nearestBoard(); if (focused) fitAll(true); else focusBoard(cur); }
+    else if (k === 'ArrowRight' || k === 'ArrowDown' || k === 'PageDown') { if (focused) { step(1); e.preventDefault(); } else { v.x -= (k === 'ArrowRight' ? 80 : 0); v.y -= (k === 'ArrowDown' ? 80 : 0); apply(); } }
+    else if (k === 'ArrowLeft' || k === 'ArrowUp' || k === 'PageUp') { if (focused) { step(-1); e.preventDefault(); } else { v.x += (k === 'ArrowLeft' ? 80 : 0); v.y += (k === 'ArrowUp' ? 80 : 0); apply(); } }
+  });
+  doc.addEventListener('keyup', function (e) { if (e.key === ' ') space = false; });
+  function nearestBoard() {
+    var cx = (vw / 2 - v.x) / v.k, cy = (vh / 2 - v.y) / v.k, best = all[0], bd = 1e18;
+    rects.forEach(function (r) { var d = Math.hypot(r.x + r.w / 2 - cx, r.y + r.h / 2 - cy); if (d < bd) { bd = d; best = r.el; } });
+    return best;
+  }
+  var rz = null;
+  window.addEventListener('resize', function () { clearTimeout(rz); rz = setTimeout(function () { vw = root.clientWidth || innerWidth; vh = root.clientHeight || innerHeight; if (focused) focusBoard(focused, false, true); }, 80); });
+
+  /* ---------- boot ---------- */
+  function boot() {
+    measure(); vw = root.clientWidth || innerWidth; vh = root.clientHeight || innerHeight;
+    var id = (location.hash || '').slice(1), hit = all.filter(function (b) { return b.dataset.board === id; })[0], saved = null;
+    try { saved = JSON.parse(localStorage.getItem(LS) || 'null'); } catch (e) {}
+    var qv = (q.get('view') || '').split(',').map(Number);
+    if (qv.length === 3 && qv.every(isFinite) && qv[2] > 0) { v = { x: qv[0], y: qv[1], k: qv[2] }; apply(false); }
+    else if (hit) focusBoard(hit, false, true);
+    else if (saved && isFinite(saved.k) && !q.get('cvtest')) { v = saved; apply(); }
+    else fitAll(false);
+    root.dataset.cv = 'ready'; root.dataset.cvBoards = String(all.length);
+    (function () { var hr = hit ? rectOf(hit) : rects[0]; root.dataset.cvDbg = JSON.stringify({ rect: hr && [hr.x, hr.y, hr.w, hr.h].map(Math.round), v: [v.x, v.y, v.k].map(function (n) { return +n.toFixed(2); }), vw: vw, vh: vh, actual: hit ? (function () { var a = hit.getBoundingClientRect(); return [a.left, a.top, a.width, a.height].map(Math.round); })() : null, cw: root.clientWidth, iw: innerWidth, W: W, aw: A.offsetWidth, dispA: getComputedStyle(A).display, wrap: getComputedStyle(A).flexWrap, meas: rects.slice(0, 5).map(function (r) { return Math.round(r.x); }), now: all.slice(0, 5).map(function (b) { return Math.round((b.getBoundingClientRect().left - v.x) / v.k); }) }); })();
+    window.__canvas = { view: function () { return v; }, fit: fitAll, focus: function (id2) { var b = all.filter(function (x) { return x.dataset.board === id2; })[0]; if (b) focusBoard(b); }, zoomAt: zoomAt, boards: all, rects: function () { return rects; } };
+    if (q.get('cvtest') || q.get('cvrects')) root.dataset.cvRects = JSON.stringify(rects.map(function (r) { return [r.el.dataset.board, Math.round(r.x), Math.round(r.y), Math.round(r.w), Math.round(r.h)]; }));
+    if (q.get('cvtest')) {
+      fitAll(false); var k0 = v.k; zoomAt(300, 200, 2); var k1 = v.k; fitAll(false); focusBoard(all[0], false, true); var f = v.k; fitAll(false);
+      var hr = hit ? rectOf(hit) : rects[0]; root.dataset.cvDbg = JSON.stringify({ rect: hr && [hr.x, hr.y, hr.w, hr.h].map(Math.round), v: [v.x, v.y, v.k].map(function (n) { return +n.toFixed(2); }), vw: vw, vh: vh });
+      var esc = 0; all.forEach(function (b) { var br = b.getBoundingClientRect(); [].forEach.call(b.querySelectorAll('*'), function (el) { if (getComputedStyle(el).position === 'fixed') { var r = el.getBoundingClientRect(); if (r.right < br.left - 2 || r.left > br.right + 2 || r.bottom < br.top - 2 || r.top > br.bottom + 2) esc++; } }); });
+      root.dataset.cvTest = JSON.stringify({ fixedEscaped: esc, k0: +k0.toFixed(3), zoomed: +(k1 / k0).toFixed(3), focusK: +f.toFixed(3), boards: all.length, world: Math.round(W), hud: chrome.length });
+    }
+  }
+  var go = function () { setTimeout(boot, 20); };
+  function start() { if (doc.fonts && doc.fonts.ready) { var done = false, once = function () { if (!done) { done = true; go(); } }; doc.fonts.ready.then(once); setTimeout(once, 700); } else go(); }
+  if (doc.readyState === 'complete') start(); else window.addEventListener('load', start);
+})();
+
+</script>
+<!-- /cv-runtime -->
+>

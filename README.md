@@ -22,7 +22,7 @@ actually kept:
 | ![overview](assets/shot-overview.jpg) | ![focus](assets/shot-focus.jpg) |
 | ![weather widget](assets/shot-weather.jpg) | ![cpu fan widget](assets/shot-cpu.jpg) |
 
-All four were produced by free opencode models following this skill. Open the [live demo](https://lunanoir21.github.io/spec-mockup-design/) to pan and zoom them yourself.
+The [live gallery](https://lunanoir21.github.io/spec-mockup-design/#gallery) has eight canvases for different platforms: a mobile habit tracker, a sales dashboard, a macOS menu bar app, a browser extension popup, a game inventory, a web app, a desktop widget and a Linux bar widget. Most were made by free opencode models following this skill. Open one to pan and zoom it yourself.
 
 ## Install
 
@@ -97,14 +97,14 @@ scrolling page, `#<id>` opens focused on a board.
 | `scripts/contrast.py` | WCAG contrast pairs and color-blind-safe categorical palette check |
 | `install.sh` | One-command installer with an agent picker (also `scripts/install-everywhere.sh`) |
 | `scripts/shoot.sh`, `check-done.py` | Headless screenshots and the delivery receipt |
-| `tests/selftest.py`, `tests/grade-run.py` | 85-test battery for the scripts; a grader for an agent run |
+| `tests/selftest.py`, `tests/grade-run.py` | 99-test battery for the scripts; a grader for an agent run |
 | `examples/` | A worked example canvas |
 
 ## Does it work?
 
 Nine real agent runs with free opencode models (skill not named in the prompt): the skill was found and used in 8, five scored
 full marks, and the failures led directly to fixes (a delivery receipt against made-up reports, a linter rule for empty boards,
-an anti-cluster rule after agents copied the first palette recipe). The script battery passes 85/85. See `CHANGELOG.md`.
+an anti-cluster rule after agents copied the first palette recipe). The script battery passes 99/99. See `CHANGELOG.md`.
 
 Honest limits: the linter measures defaults, not taste; look at the screenshots. Quality still depends on the model, and some
 models stop early or polish for too long (the skill tells them to run the delivery receipt before finishing).

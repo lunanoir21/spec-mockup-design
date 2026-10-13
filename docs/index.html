@@ -4,144 +4,405 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Spec Mockup Design</title>
-<meta name="description" content="An agent skill that makes AI coding agents design real UIs instead of AI slop. Live canvas demos.">
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:wght@600;700&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400&display=swap">
+<meta name="description" content="An agent skill that makes AI agents design real UIs instead of AI slop. Pan and zoom canvases, a palette generator and a slop linter. Works with Claude Code, Codex, opencode, Gemini, Cursor and more.">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%23101312'/%3E%3Crect x='5' y='6' width='12' height='9' rx='2' fill='%23e8a44a'/%3E%3Crect x='19' y='6' width='8' height='9' rx='2' fill='%23e6ebe9'/%3E%3Crect x='5' y='18' width='8' height='8' rx='2' fill='%23e6ebe9'/%3E%3Crect x='15' y='18' width='12' height='8' rx='2' fill='%23e6ebe9'/%3E%3C/svg%3E">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,700;12..96,800&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
 <style>
-/* Layout: one column; hero with the navigation GIF, install, live demo tabs, workflow, tools */
-:root{--bg:#eff5f3;--surface:#f5fbf9;--line:#d2d9d7;--fg:#1c201f;--muted:#586260;--accent:#016d5e;--accent-fg:#ffffff;--accent-soft:#d8ece7;
- --font-display:"Bricolage Grotesque","IBM Plex Sans",system-ui,sans-serif;--font-body:"IBM Plex Sans",system-ui,sans-serif;--font-mono:"IBM Plex Mono",ui-monospace,monospace}
-@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){--bg:#0d100f;--surface:#141918;--line:#232a28;--fg:#d9e0de;--muted:#98a09e;--accent:#50c1ab;--accent-fg:#06201a;--accent-soft:#16302b;color-scheme:dark}}
-:root[data-theme="dark"]{--bg:#0d100f;--surface:#141918;--line:#232a28;--fg:#d9e0de;--muted:#98a09e;--accent:#50c1ab;--accent-fg:#06201a;--accent-soft:#16302b;color-scheme:dark}
+/* Concept: a canvas. Concrete-grey ground, ink text, one amber signal. Boards float on a dotted surface, like the product. */
+:root{
+  --bg:#ecefee;--surface:#f7f9f8;--raised:#ffffff;--line:#d3d8d6;--fg:#121615;--muted:#566260;
+  --accent:#9a5900;--accent-bg:#f0a030;--accent-fg:#1a1200;--accent-soft:#f6e3c4;--good:#1f6b45;--bad:#9b2f2a;
+  --stage:#0e1110;--stage-fg:#e6ebe9;--stage-line:#262c2a;
+  --dot:rgba(18,22,21,.13);
+  --font-display:"Bricolage Grotesque","IBM Plex Sans",system-ui,sans-serif;--font-body:"IBM Plex Sans",system-ui,sans-serif;--font-mono:"IBM Plex Mono",ui-monospace,monospace;
+  --r-s:6px;--r-m:12px;--r-l:20px;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#0e1110;--surface:#151918;--raised:#1b201f;--line:#262c2a;--fg:#e6ebe9;--muted:#9aa3a1;
+  --accent:#e8a44a;--accent-bg:#e8a44a;--accent-fg:#1a1200;--accent-soft:#2d2210;--good:#7bc79c;--bad:#ee8f88;--dot:rgba(230,235,233,.1);color-scheme:dark}}
+:root[data-theme="dark"]{--bg:#0e1110;--surface:#151918;--raised:#1b201f;--line:#262c2a;--fg:#e6ebe9;--muted:#9aa3a1;
+  --accent:#e8a44a;--accent-bg:#e8a44a;--accent-fg:#1a1200;--accent-soft:#2d2210;--good:#7bc79c;--bad:#ee8f88;--dot:rgba(230,235,233,.1);color-scheme:dark}
 *{box-sizing:border-box}
-body{background:var(--bg);color:var(--fg);font:400 16px/1.6 var(--font-body);padding-inline:16px;padding-block:24px 80px}
-main{max-width:1040px;margin:0 auto;display:flex;flex-direction:column;gap:64px}
-h1,h2{font-family:var(--font-display);margin:0;text-wrap:balance;line-height:1.1}
-h1{font-size:clamp(34px,6vw,60px);font-weight:700;letter-spacing:-.015em}
-h2{font-size:28px;margin-bottom:16px} h3{font-size:16px;margin:0 0 4px}
-p{margin:0;max-width:66ch} code,.mono{font-family:var(--font-mono);font-size:.88em}
-code{background:var(--accent-soft);padding:1px 6px;border-radius:4px}
+html{scroll-behavior:smooth;scroll-padding-top:72px}
+body{margin:0;background:var(--bg);color:var(--fg);font:400 16px/1.6 var(--font-body);background-image:radial-gradient(circle,var(--dot) 1px,transparent 1.4px);background-size:28px 28px;padding-inline:0}
+.wrap{max-width:1160px;margin:0 auto;padding-inline:20px}
+h1,h2,h3{font-family:var(--font-display);margin:0;text-wrap:balance;line-height:1.05;letter-spacing:-.015em}
+h1{font-size:clamp(40px,7vw,84px);font-weight:800}
+h2{font-size:clamp(28px,4vw,44px);font-weight:700}
+h3{font-size:19px;font-weight:700;letter-spacing:-.005em}
+p{margin:0}
 a{color:var(--accent)}
-.top{display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;font-size:14px}
-.top nav{display:flex;gap:16px;flex-wrap:wrap} .top a{text-decoration:none;color:var(--fg)} .top a:hover{color:var(--accent)}
+code,.mono{font-family:var(--font-mono);font-size:.88em}
+code{background:var(--accent-soft);padding:1px 6px;border-radius:4px}
+section{padding-block:88px}
+.eyebrow{font:500 12px var(--font-mono);letter-spacing:.12em;text-transform:uppercase;color:var(--accent);margin-bottom:14px;display:block}
+.lede{font-size:19px;color:var(--muted);max-width:60ch;margin-top:14px}
+/* header */
+header.top{position:sticky;top:0;z-index:20;background:color-mix(in srgb,var(--bg) 88%,transparent);backdrop-filter:blur(10px);border-bottom:1px solid var(--line)}
+.bar{display:flex;align-items:center;gap:20px;height:60px}
+.logo{display:flex;align-items:center;gap:10px;font:700 17px var(--font-display);text-decoration:none;color:var(--fg)}
+.logo svg{width:26px;height:26px}
+.bar nav{display:flex;gap:22px;margin-left:auto;font-size:14.5px}
+.bar nav a{color:var(--fg);text-decoration:none;opacity:.8}.bar nav a:hover{opacity:1;color:var(--accent)}
 .lang{display:inline-flex;border:1px solid var(--line);border-radius:999px;overflow:hidden}
-.lang button{font:inherit;font-size:13px;border:0;background:transparent;color:var(--fg);padding:4px 12px;cursor:pointer}
-.lang button[aria-pressed=true]{background:var(--accent);color:var(--accent-fg)}
-.hero{display:grid;grid-template-columns:minmax(0,1fr);gap:28px}
-.hero p{font-size:19px;color:var(--muted)}
-.hero img{width:100%;height:auto;border:1px solid var(--line);border-radius:12px;display:block}
-.cta{display:flex;gap:10px;flex-wrap:wrap}
-.btn{display:inline-block;padding:10px 18px;border-radius:8px;border:1px solid var(--accent);background:var(--accent);color:var(--accent-fg);text-decoration:none;font-weight:600;font-size:15px}
-.btn.alt{background:transparent;color:var(--accent)}
-.code{position:relative;background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:14px 16px;font:13px/1.6 var(--font-mono);overflow-x:auto;white-space:pre}
-.copy{position:absolute;right:8px;top:8px;font:12px var(--font-body);border:1px solid var(--line);background:var(--bg);color:var(--fg);border-radius:4px;padding:2px 10px;cursor:pointer}
-.tabs{display:flex;gap:8px;overflow-x:auto;padding-bottom:6px}
-.tabs button{flex:0 0 auto;text-align:left;font:inherit;color:var(--fg);background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:8px 14px;cursor:pointer;display:flex;flex-direction:column}
-.tabs button span{font-size:12px;color:var(--muted)} .tabs button[aria-selected=true]{border-color:var(--accent);background:var(--accent-soft)}
-.tabs button:focus-visible,.btn:focus-visible,.copy:focus-visible,.lang button:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
-.dbar{display:flex;justify-content:space-between;gap:10px;padding-block:8px;font-size:14px;color:var(--muted);flex-wrap:wrap}
-#frame{width:100%;height:76vh;min-height:520px;border:1px solid var(--line);border-radius:12px;background:#0f1211}
-.prompts{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:12px}
-.pr{font:inherit;font-size:15px;text-align:left;color:var(--fg);background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:14px 16px;cursor:pointer;line-height:1.5;min-width:0;position:relative}
-.pr:hover{border-color:var(--accent)} .pr.ok::after{content:"Copied";position:absolute;right:10px;top:8px;font-size:12px;color:var(--accent)}
+.lang button{font:inherit;font-size:12.5px;border:0;background:transparent;color:var(--fg);padding:4px 11px;cursor:pointer}
+.lang button[aria-pressed=true]{background:var(--fg);color:var(--bg)}
+.gh{display:inline-flex;gap:8px;align-items:center;border:1px solid var(--line);border-radius:999px;padding:6px 14px;font-size:14px;text-decoration:none;color:var(--fg);background:var(--raised)}
+.gh:hover{border-color:var(--accent)}
+@media (max-width:820px){.bar nav{display:none}.bar{justify-content:space-between}.gh{margin-left:auto}}
+/* hero */
+.hero{padding-block:72px 40px}
+.hero-grid{display:grid;grid-template-columns:minmax(0,1.05fr) minmax(0,1fr);gap:48px;align-items:center}
+@media (max-width:980px){.hero-grid{grid-template-columns:1fr}}
+.hero h1 em{font-style:normal;background:linear-gradient(transparent 62%,var(--accent-bg) 62% 92%,transparent 92%);padding-inline:.06em}
+.hero .lede{font-size:20px}
+.install{margin-top:28px;display:flex;align-items:stretch;border:1px solid var(--line);border-radius:var(--r-m);background:var(--raised);overflow:hidden;max-width:620px}
+.install code{flex:1;background:transparent;padding:14px 16px;font-size:13.5px;overflow-x:auto;white-space:nowrap;border-radius:0}
+.install button{border:0;border-left:1px solid var(--line);background:var(--accent-bg);color:var(--accent-fg);font:600 14px var(--font-body);padding:0 18px;cursor:pointer}
+.install button:hover{filter:brightness(1.05)}
+.cta{display:flex;gap:12px;flex-wrap:wrap;margin-top:18px}
+.btn{display:inline-flex;align-items:center;gap:8px;padding:11px 20px;border-radius:var(--r-m);border:1px solid var(--fg);background:var(--fg);color:var(--bg);font:600 15px var(--font-body);text-decoration:none;cursor:pointer}
+.btn.alt{background:transparent;color:var(--fg)}
+.btn:focus-visible,.install button:focus-visible,.chip:focus-visible,.card:focus-visible,.vbtn:focus-visible,.copy:focus-visible,.lang button:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.agents-row{display:flex;flex-wrap:wrap;gap:8px;margin-top:26px;font-size:13px;color:var(--muted);align-items:center}
+.agents-row span.t{margin-right:4px}
+.pillx{border:1px solid var(--line);border-radius:999px;padding:3px 11px;background:var(--raised);color:var(--fg);font-size:12.5px}
+.win{border-radius:var(--r-l);overflow:hidden;background:var(--stage);border:1px solid var(--stage-line);box-shadow:0 30px 60px -20px rgba(0,0,0,.45),0 0 0 1px rgba(255,255,255,.02)}
+.win .chrome{display:flex;gap:7px;align-items:center;padding:10px 14px;border-bottom:1px solid var(--stage-line);font:12px var(--font-mono);color:#7d8885}
+.win .chrome i{width:10px;height:10px;border-radius:50%;background:#2c3532;display:inline-block}
+.win img{display:block;width:100%;height:auto}
+/* before/after */
+.ba{display:grid;grid-template-columns:1fr 1fr;gap:24px;margin-top:40px}
+@media (max-width:820px){.ba{grid-template-columns:1fr}}
+.shot{border-radius:var(--r-l);overflow:hidden;border:1px solid var(--line);background:var(--raised)}
+.shot img{display:block;width:100%;height:auto;aspect-ratio:1100/560;object-fit:cover;object-position:top}
+.shot figcaption{display:flex;justify-content:space-between;align-items:flex-start;gap:12px;padding:14px 18px;font-size:14px;border-top:1px solid var(--line)}
+.shot figcaption b{font-family:var(--font-display);font-size:16px}
+.score{font:600 13px var(--font-mono);padding:3px 10px;border-radius:999px}
+.score.bad{background:color-mix(in srgb,var(--bad) 16%,transparent);color:var(--bad)}
+.score.good{background:color-mix(in srgb,var(--good) 16%,transparent);color:var(--good)}
+.tells{display:flex;flex-wrap:wrap;gap:8px;margin-top:22px}
+.tells span{font-size:13px;border:1px dashed var(--line);border-radius:999px;padding:3px 12px;color:var(--muted)}
+/* gallery */
+.filters{display:flex;flex-wrap:wrap;gap:8px;margin:28px 0 22px}
+.chip{font:500 14px var(--font-body);border:1px solid var(--line);background:var(--raised);color:var(--fg);border-radius:999px;padding:6px 16px;cursor:pointer}
+.chip[aria-pressed=true]{background:var(--fg);color:var(--bg);border-color:var(--fg)}
+.cards{display:grid;grid-template-columns:repeat(auto-fill,minmax(320px,1fr));gap:22px}
+.card{display:flex;flex-direction:column;text-align:left;font:inherit;color:inherit;background:var(--raised);border:1px solid var(--line);border-radius:var(--r-l);overflow:hidden;cursor:pointer;padding:0;transition:transform .18s cubic-bezier(.2,.8,.2,1),box-shadow .18s,border-color .18s}
+.card:hover{transform:translateY(-4px);box-shadow:0 18px 36px -18px rgba(0,0,0,.4);border-color:var(--accent)}
+.card .thumb{background:var(--stage);aspect-ratio:16/9;overflow:hidden;position:relative}
+.card .thumb img{width:100%;height:100%;object-fit:cover;display:block}
+.card .plat{position:absolute;left:12px;top:12px;background:var(--stage);color:var(--stage-fg);font:500 11.5px var(--font-mono);padding:3px 10px;border-radius:999px;border:1px solid var(--stage-line)}
+.card .body{padding:16px 18px 18px;display:flex;flex-direction:column;gap:8px;flex:1}
+.card .q{font-size:14px;color:var(--muted);line-height:1.5;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden}
+.card .meta{display:flex;gap:14px;font:12.5px var(--font-mono);color:var(--muted);margin-top:auto;padding-top:6px;flex-wrap:wrap}
+.card .meta b{color:var(--fg);font-weight:500}
+.empty{color:var(--muted);padding:40px;text-align:center;border:1px dashed var(--line);border-radius:var(--r-m)}
+/* viewer */
+dialog.viewer{border:0;padding:0;background:var(--stage);color:var(--stage-fg);width:100vw;height:100vh;max-width:none;max-height:none;margin:0}
+dialog.viewer::backdrop{background:rgba(0,0,0,.7)}
+.vtop{display:flex;align-items:center;gap:12px;height:54px;padding-inline:16px;border-bottom:1px solid var(--stage-line);font-size:14px}
+.vtop .vt{font:700 16px var(--font-display);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.vtop .vq{color:#8d9895;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1;min-width:0;font-size:13px}
+.vbtn{border:1px solid var(--stage-line);background:#171c1b;color:var(--stage-fg);border-radius:8px;padding:6px 12px;font:500 13px var(--font-body);cursor:pointer;text-decoration:none;white-space:nowrap}
+.vbtn:hover{border-color:var(--accent)}
+dialog.viewer iframe{display:block;width:100%;height:calc(100vh - 54px);border:0;background:#0f1211}
+.vhint{color:#8d9895;font-size:12.5px}
+@media (max-width:700px){.vtop .vq,.vhint{display:none}}
+/* workflow */
+.steps{display:grid;grid-template-columns:repeat(auto-fit,minmax(310px,1fr));gap:18px;margin-top:36px;counter-reset:st}
+.step{background:var(--raised);border:1px solid var(--line);border-radius:var(--r-l);padding:22px;min-width:0;position:relative}
+.step::before{counter-increment:st;content:counter(st);font:700 14px var(--font-mono);color:var(--accent);display:block;margin-bottom:12px}
+.step p{color:var(--muted);font-size:15px;margin-top:6px}
+/* prompts */
+.prompts{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:14px;margin-top:32px}
+.pr{font:inherit;font-size:15.5px;text-align:left;color:var(--fg);background:var(--raised);border:1px solid var(--line);border-radius:var(--r-m);padding:16px 18px 16px 44px;cursor:pointer;line-height:1.5;position:relative;min-width:0}
+.pr::before{content:">";position:absolute;left:18px;top:15px;font:500 15px var(--font-mono);color:var(--accent)}
+.pr:hover{border-color:var(--accent)}.pr.ok::after{content:attr(data-ok);position:absolute;right:12px;top:10px;font-size:12px;color:var(--good)}
 .pr:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
-.steps{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:14px;counter-reset:s}
-.steps>div{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:16px;min-width:0}
-.steps p{color:var(--muted);font-size:15px}
-.tools{width:100%;border-collapse:collapse;font-size:15px} .tools td{padding:9px 12px;border-bottom:1px solid var(--line);vertical-align:top} .tools td:first-child{white-space:nowrap}
-.tw{overflow-x:auto;border:1px solid var(--line);border-radius:12px;background:var(--surface)} .tools tr:last-child td{border-bottom:0}
-footer{color:var(--muted);font-size:14px;border-top:1px solid var(--line);padding-top:16px;display:flex;gap:16px;flex-wrap:wrap}
-html[data-lang=en] .tr, html[data-lang=tr] .en{display:none!important}
+.prcat{font:600 13px var(--font-mono);letter-spacing:.08em;text-transform:uppercase;color:var(--muted);margin:30px 0 -10px}
+/* numbers */
+.stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:18px;margin-top:36px}
+.stat{border-top:2px solid var(--fg);padding-top:14px}
+.stat b{display:block;font:800 clamp(34px,5vw,56px)/1 var(--font-display);font-variant-numeric:tabular-nums}
+.stat span{color:var(--muted);font-size:14.5px}
+.tw{overflow-x:auto;border:1px solid var(--line);border-radius:var(--r-l);background:var(--raised);margin-top:36px}
+.tools{width:100%;border-collapse:collapse;font-size:15px;min-width:640px}.tools td{padding:12px 18px;border-bottom:1px solid var(--line);vertical-align:top}.tools tr:last-child td{border-bottom:0}.tools td:first-child{white-space:nowrap}
+/* install */
+.term{background:var(--stage);color:var(--stage-fg);border-radius:var(--r-l);border:1px solid var(--stage-line);overflow:hidden;margin-top:30px}
+.term .chrome{display:flex;gap:7px;align-items:center;padding:10px 16px;border-bottom:1px solid var(--stage-line);font:12px var(--font-mono);color:#7d8885}
+.term .chrome i{width:10px;height:10px;border-radius:50%;background:#2c3532}
+.term pre{margin:0;padding:18px 20px;font:13.5px/1.6 var(--font-mono);overflow-x:auto}
+.term .g{color:#7bc79c}.term .d{color:#7d8885}.term .a{color:#e8a44a}
+.cols2{display:grid;grid-template-columns:1fr 1fr;gap:28px;align-items:start}
+@media (max-width:900px){.cols2{grid-template-columns:1fr}}
+.agrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:10px;margin-top:26px}
+.agrid div{border:1px solid var(--line);border-radius:var(--r-m);background:var(--raised);padding:12px 14px;font-size:14.5px;display:flex;justify-content:space-between;gap:8px}
+.agrid small{color:var(--muted);font:12px var(--font-mono)}
+footer{border-top:1px solid var(--line);padding-block:36px 56px;color:var(--muted);font-size:14px}
+footer .wrap{display:flex;gap:22px;flex-wrap:wrap;align-items:center}
+footer a{color:var(--fg);text-decoration:none}footer a:hover{color:var(--accent)}
+html[data-lang=en] .tr,html[data-lang=tr] .en{display:none!important}
+@media (prefers-reduced-motion:reduce){*{transition:none!important;scroll-behavior:auto!important}}
 </style>
 </head>
 <body>
-<main>
-<div class="top">
-  <strong class="mono">spec-mockup-design</strong>
-  <nav><a href="#demo"><span class="en">Live demo</span><span class="tr">Canlı demo</span></a><a href="#how"><span class="en">How it works</span><span class="tr">Nasıl çalışır</span></a><a href="#prompts"><span class="en">Prompts</span><span class="tr">İstemler</span></a><a href="#install"><span class="en">Install</span><span class="tr">Kurulum</span></a><a href="https://github.com/lunanoir21/spec-mockup-design">GitHub</a></nav>
+<header class="top"><div class="wrap bar">
+  <a class="logo" href="#top" aria-label="Spec Mockup Design"><svg viewBox="0 0 32 32" aria-hidden="true"><rect width="32" height="32" rx="7" fill="#101312"/><rect x="5" y="6" width="12" height="9" rx="2" fill="#e8a44a"/><rect x="19" y="6" width="8" height="9" rx="2" fill="#e6ebe9"/><rect x="5" y="18" width="8" height="8" rx="2" fill="#e6ebe9"/><rect x="15" y="18" width="12" height="8" rx="2" fill="#e6ebe9"/></svg>spec-mockup-design</a>
+  <nav aria-label="Sections"><a href="#gallery"><span class="en">Gallery</span><span class="tr">Galeri</span></a><a href="#how"><span class="en">How it works</span><span class="tr">Nasıl çalışır</span></a><a href="#prompts"><span class="en">Prompts</span><span class="tr">İstemler</span></a><a href="#install"><span class="en">Install</span><span class="tr">Kurulum</span></a></nav>
   <div class="lang" role="group" aria-label="Language"><button data-l="en" aria-pressed="true">EN</button><button data-l="tr" aria-pressed="false">TR</button></div>
-</div>
+  <a class="gh" href="https://github.com/lunanoir21/spec-mockup-design"><svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.01 8.01 0 0016 8c0-4.42-3.58-8-8-8z"/></svg>GitHub</a>
+</div></header>
 
-<section class="hero">
-  <h1><span class="en">Make AI agents design like they read your code.</span><span class="tr">Yapay zekaya kodunu okumuş gibi tasarım yaptır.</span></h1>
-  <p><span class="en">An agent skill that grounds every mockup in a real reference, shows each state on its own board, scores the result against AI-slop tells, and hands you a canvas you can pan and zoom.</span><span class="tr">Her mockup'ı gerçek bir referansa bağlayan, her durumu ayrı tahtada gösteren, sonucu AI-slop belirtilerine karşı puanlayan ve gezip yakınlaştırabileceğin bir canvas teslim eden bir ajan skill'i.</span></p>
-  <div class="cta"><a class="btn" href="#demo"><span class="en">Open the live demo</span><span class="tr">Canlı demoyu aç</span></a><a class="btn alt" href="#install"><span class="en">Install it</span><span class="tr">Kur</span></a></div>
-  <img src="../assets/canvas-demo.gif" alt="Pan and zoom canvas: overview, focus on a board, move to the next, back to overview" width="900" height="506">
-</section>
-
-<section id="demo">
-  <h2><span class="en">Live demo</span><span class="tr">Canlı demo</span></h2>
-  <p style="margin-bottom:14px"><span class="en">Four real designs made by free models following the skill. Drag to pan, Ctrl+wheel to zoom, double-click to fit, F to focus a board.</span><span class="tr">Skill'i izleyen ücretsiz modellerin ürettiği dört gerçek tasarım. Sürükleyerek gez, Ctrl+tekerlek ile yakınlaş, çift tıkla sığdır, F ile tahtaya odaklan.</span></p>
-  <div class="tabs" role="tablist" aria-label="Demos">
-    <button role="tab" aria-selected="true" data-src="demos/book-tracker.html" data-n="Book tracker"><b>Book tracker</b><span>Web app · 3 options</span></button>
-    <button role="tab" aria-selected="false" data-src="demos/weather-widget.html" data-n="Weather widget"><b>Weather widget</b><span>Desktop widget</span></button>
-    <button role="tab" aria-selected="false" data-src="demos/cpu-fan-widget.html" data-n="CPU and fan widget"><b>CPU and fan</b><span>Status bar widget</span></button>
-    <button role="tab" aria-selected="false" data-src="demos/disk-pill.html" data-n="Disk pill"><b>Disk pill</b><span>Worked example</span></button>
+<main id="top">
+<section class="hero"><div class="wrap hero-grid">
+  <div>
+    <span class="eyebrow"><span class="en">Agent skill · MIT</span><span class="tr">Ajan skill'i · MIT</span></span>
+    <h1><span class="en">Make AI design like it <em>read your code</em>.</span><span class="tr">Yapay zekaya kodunu <em>okumuş gibi</em> tasarım yaptır.</span></h1>
+    <p class="lede"><span class="en">A skill for Claude Code, Codex, opencode, Gemini, Cursor and more. It grounds every mockup in a real reference, shows each state on its own board, scores the result against AI-slop, and hands you a canvas you can pan and zoom.</span><span class="tr">Claude Code, Codex, opencode, Gemini, Cursor ve diğerleri için bir skill. Her mockup'ı gerçek bir referansa bağlar, her durumu ayrı tahtada gösterir, sonucu AI-slop'a karşı puanlar ve gezip yakınlaştırabileceğin bir canvas teslim eder.</span></p>
+    <div class="install" id="hero-install"><code id="hi">curl -fsSL https://raw.githubusercontent.com/lunanoir21/spec-mockup-design/main/install.sh | bash</code><button type="button" data-copy="hi"><span class="en">Copy</span><span class="tr">Kopyala</span></button></div>
+    <div class="cta"><a class="btn" href="#gallery"><span class="en">Open the gallery</span><span class="tr">Galeriyi aç</span></a><a class="btn alt" href="#how"><span class="en">How it works</span><span class="tr">Nasıl çalışır</span></a></div>
+    <div class="agents-row"><span class="t"><span class="en">Works with</span><span class="tr">Şunlarla çalışır</span></span><span class="pillx">Claude Code</span><span class="pillx">Codex</span><span class="pillx">opencode</span><span class="pillx">Gemini</span><span class="pillx">Cursor</span><span class="pillx">Kiro</span><span class="pillx">Qwen</span><span class="pillx">+7</span></div>
   </div>
-  <div class="dbar"><span id="dn"></span><a id="dopen" href="#" target="_blank" rel="noopener"><span class="en">Open full screen</span><span class="tr">Tam ekran aç</span></a></div>
-  <iframe id="frame" title="Demo canvas" loading="lazy"></iframe>
-</section>
+  <div class="win" aria-label="Canvas demo"><div class="chrome"><i></i><i></i><i></i><span>canvas · pan, zoom, focus</span></div><img src="../assets/canvas-demo.gif" alt="Pan and zoom canvas: overview, focus on a board, next board, back to overview" width="900" height="506"></div>
+</div></section>
 
-<section id="prompts">
-  <h2><span class="en">Try these prompts</span><span class="tr">Bu istemleri dene</span></h2>
-  <p style="margin-bottom:14px"><span class="en">You never name the skill. Ask for a design and it loads. Click a prompt to copy it.</span><span class="tr">Skill'in adını söylemene gerek yok. Tasarım iste, kendiliğinden yüklenir. Kopyalamak için istemin üstüne tıkla.</span></p>
-  <div class="prompts">
-    <button class="pr" type="button"><span class="en">Design a CPU temperature widget for my status bar. Show idle, warning and critical states.</span><span class="tr">Hyprland üst barım için CPU sıcaklığı ve fan hızını gösteren bir widget tasarla. Boşta, uyarı ve kritik durumlarını göster.</span></button>
-    <button class="pr" type="button"><span class="en">Give me 3 options for a settings page that differ in structure, not just color.</span><span class="tr">Ayarlar sayfası için yapıca birbirinden farklı 3 seçenek ver, sadece renkte değil.</span></button>
-    <button class="pr" type="button"><span class="en">Design a new "Disk" page for the app in ~/projects/monitor. Read its source, reuse its real colors and timings, do not modify it.</span><span class="tr">~/projeler/monitor uygulamasına yeni bir Disk sayfası tasarla. Kaynağını oku, gerçek renk ve süreleri kullan, hiçbir dosyayı değiştirme.</span></button>
-    <button class="pr" type="button"><span class="en">I only want ONE restrained direction. Neutral, no neon, no gradients.</span><span class="tr">Sadece TEK bir sakin yön istiyorum. Nötr, neon ve gradyan yok.</span></button>
-    <button class="pr" type="button"><span class="en">The first option is closest. Make the hover state clearer and add the error and loading boards.</span><span class="tr">İlk seçenek en yakını. Hover durumunu netleştir, hata ve yükleniyor tahtalarını ekle.</span></button>
-    <button class="pr" type="button"><span class="en">The design is approved. Export the tokens as a QML Theme singleton and list the components per board.</span><span class="tr">Tasarım onaylandı. Tokenları QML Theme singleton olarak aktar ve tahta başına bileşenleri listele.</span></button>
+<section id="why"><div class="wrap">
+  <span class="eyebrow"><span class="en">Same request, two outcomes</span><span class="tr">Aynı istek, iki sonuç</span></span>
+  <h2><span class="en">Ask for a habit tracker. Get a different page.</span><span class="tr">Alışkanlık takipçisi iste. Farklı bir sayfa al.</span></h2>
+  <p class="lede"><span class="en">Left: the defaults agents fall back to (illustrative, hand-written). Right: a real result from a free model following the skill.</span><span class="tr">Solda ajanların düştüğü varsayılanlar (örnek amaçlı, elle yazıldı). Sağda skill'i izleyen ücretsiz bir modelin gerçek sonucu.</span></p>
+  <div class="ba">
+    <figure class="shot" style="margin:0"><img src="img/slop.jpg" alt="A generic purple gradient habit tracker with emoji and glowing cards" loading="lazy"><figcaption><span><b><span class="en">Typical default</span><span class="tr">Tipik varsayılan</span></b><br><span class="en" style="color:var(--muted)">gradient, Inter, glow, emoji, lorem ipsum</span><span class="tr" style="color:var(--muted)">gradyan, Inter, parlama, emoji, lorem ipsum</span></span><span class="score bad">slop 6/100</span></figcaption></figure>
+    <figure class="shot" style="margin:0"><img id="ba-good" src="img/habit.jpg" alt="A habit tracker designed with the skill" loading="lazy"><figcaption><span><b><span class="en">With the skill</span><span class="tr">Skill ile</span></b><br><span class="en" id="ba-meta" style="color:var(--muted)">real states, generated palette, one concept</span><span class="tr" style="color:var(--muted)">gerçek durumlar, üretilmiş palet, tek konsept</span></span><span class="score good" id="ba-score">slop 9x/100</span></figcaption></figure>
   </div>
-  <p style="margin-top:12px"><a href="https://github.com/lunanoir21/spec-mockup-design/blob/main/docs/PROMPTS.md"><span class="en">19 more prompts</span><span class="tr">19 istem daha</span></a></p>
-</section>
+  <div class="tells"><span>default font</span><span>purple-blue gradient</span><span>left-border cards</span><span>neon glow</span><span>emoji icons</span><span>lorem ipsum</span><span>one pretty state</span><span>cream + terracotta cluster</span></div>
+</div></section>
 
-<section id="how">
-  <h2><span class="en">How it works</span><span class="tr">Nasıl çalışır</span></h2>
+<section id="gallery"><div class="wrap">
+  <span class="eyebrow"><span class="en">Gallery</span><span class="tr">Galeri</span></span>
+  <h2><span class="en">For every platform, not just a Linux bar.</span><span class="tr">Her platform için, sadece Linux çubuğu değil.</span></h2>
+  <p class="lede"><span class="en">Web apps, mobile, macOS, browser extensions, games, terminals. Each one is a real canvas made by a free model with the skill. Open one, drag to pan, Ctrl+wheel to zoom, press F to focus a board.</span><span class="tr">Web uygulamaları, mobil, macOS, tarayıcı eklentileri, oyunlar, terminal. Her biri skill'li ücretsiz bir modelin ürettiği gerçek bir canvas. Birini aç, sürükleyerek gez, Ctrl+tekerlek ile yakınlaş, F ile tahtaya odaklan.</span></p>
+  <div class="filters" id="filters" role="group" aria-label="Platform"></div>
+  <div class="cards" id="cards"></div>
+</div></section>
+
+<section id="how"><div class="wrap">
+  <span class="eyebrow"><span class="en">How it works</span><span class="tr">Nasıl çalışır</span></span>
+  <h2><span class="en">A workflow, not a mood.</span><span class="tr">Bir ruh hali değil, bir iş akışı.</span></h2>
   <div class="steps">
-    <div><h3><span class="en">Ground in a reference</span><span class="tr">Referansa dayan</span></h3><p><span class="en">Reads your source for real colors, radii, spacing and timings, or asks for one. No inventing when something real exists.</span><span class="tr">Gerçek renk, radius, boşluk ve süreleri kaynağından okur veya bir referans ister. Gerçeği varken uydurmaz.</span></p></div>
-    <div><h3><span class="en">Generate a design language</span><span class="tr">Tasarım dili üret</span></h3><p><span class="en">OKLCH palette with tinted neutrals, WCAG-fixed, light and dark. Modular type scale, motion tokens, one icon weight.</span><span class="tr">Boyalı nötrlerle OKLCH paleti, WCAG'a göre düzeltilmiş, açık ve koyu. Ölçekli yazı sistemi, hareket tokenları, tek ikon kalınlığı.</span></p></div>
-    <div><h3><span class="en">One board per state</span><span class="tr">Durum başına bir tahta</span></h3><p><span class="en">Idle, hover, empty, error, loading, overflow, focus. Plus a motion storyboard, fonts, themes and tokens.</span><span class="tr">Boşta, hover, boş, hata, yükleniyor, taşma, odak. Ayrıca hareket storyboard'u, fontlar, temalar ve tokenlar.</span></p></div>
-    <div><h3><span class="en">Gate against slop</span><span class="tr">Slop kapısı</span></h3><p><span class="en">A linter scores defaults, neon, glow, gradients, emoji, cliche palettes and empty boards. A receipt proves the files exist.</span><span class="tr">Bir denetleyici varsayılanları, neonu, parlamayı, gradyanı, emojiyi, klişe paletleri ve boş tahtaları puanlar. Teslim fişi dosyaların var olduğunu kanıtlar.</span></p></div>
-    <div><h3><span class="en">Deliver a canvas</span><span class="tr">Canvas teslim et</span></h3><p><span class="en">One HTML file: infinite surface, focus, per-board download. Works offline, no build step.</span><span class="tr">Tek HTML dosyası: sonsuz yüzey, odaklama, tahta başına indirme. Çevrimdışı çalışır, derleme adımı yok.</span></p></div>
-    <div><h3><span class="en">Iterate narrowly</span><span class="tr">Dar iterasyon</span></h3><p><span class="en">React to one element and only that changes. Then hand off tokens and compare the build to the boards.</span><span class="tr">Tek bir öğeye tepki ver, yalnızca o değişir. Sonra tokenları aktar ve yapıyı tahtalarla karşılaştır.</span></p></div>
+    <div class="step"><h3><span class="en">Ground in a reference</span><span class="tr">Referansa dayan</span></h3><p><span class="en">Reads your project's source for real colors, radii, spacing and animation timings, or asks for one. It does not invent when something real exists.</span><span class="tr">Projenin kaynağından gerçek renk, radius, boşluk ve animasyon sürelerini okur, ya da bir referans ister. Gerçeği varken uydurmaz.</span></p></div>
+    <div class="step"><h3><span class="en">Generate a design language</span><span class="tr">Tasarım dili üret</span></h3><p><span class="en">An OKLCH palette with tinted neutrals, fixed to WCAG, light and dark. A type scale, motion tokens, one icon weight. One concept sentence.</span><span class="tr">Boyalı nötrlerle OKLCH paleti, WCAG'a göre düzeltilmiş, açık ve koyu. Yazı ölçeği, hareket tokenları, tek ikon kalınlığı. Tek cümlelik konsept.</span></p></div>
+    <div class="step"><h3><span class="en">One board per state</span><span class="tr">Durum başına bir tahta</span></h3><p><span class="en">Idle, hover, empty, error, loading, overflow, focus. Plus a motion storyboard, a font comparison, themes and a tokens board.</span><span class="tr">Boşta, hover, boş, hata, yükleniyor, taşma, odak. Ayrıca hareket storyboard'u, font karşılaştırması, temalar ve token tahtası.</span></p></div>
+    <div class="step"><h3><span class="en">Gate against slop</span><span class="tr">Slop kapısı</span></h3><p><span class="en">A linter scores defaults, neon, glow, gradients, emoji, cliche palettes and empty boards. A receipt proves the files really exist.</span><span class="tr">Bir denetleyici varsayılanları, neonu, parlamayı, gradyanı, emojiyi, klişe paletleri ve boş tahtaları puanlar. Teslim fişi dosyaların gerçekten var olduğunu kanıtlar.</span></p></div>
+    <div class="step"><h3><span class="en">Deliver a canvas</span><span class="tr">Canvas teslim et</span></h3><p><span class="en">One HTML file with an infinite surface, focus mode and per-board download. Works offline, no build step, no dependencies.</span><span class="tr">Sonsuz yüzey, odak modu ve tahta başına indirme olan tek HTML dosyası. Çevrimdışı çalışır, derleme ve bağımlılık yok.</span></p></div>
+    <div class="step"><h3><span class="en">Iterate narrowly, then hand off</span><span class="tr">Dar iterasyon, sonra aktarım</span></h3><p><span class="en">React to one element and only that changes. Then export tokens and compare the build to the boards.</span><span class="tr">Tek bir öğeye tepki ver, yalnızca o değişir. Sonra tokenları aktar, yapıyı tahtalarla karşılaştır.</span></p></div>
   </div>
-</section>
+</div></section>
 
-<section id="install">
-  <h2><span class="en">Install</span><span class="tr">Kurulum</span></h2>
-  <div class="code" id="c1"><button class="copy" data-t="c1">Copy</button>curl -fsSL https://raw.githubusercontent.com/lunanoir21/spec-mockup-design/main/install.sh | bash</div>
-  <p style="margin-top:12px;color:var(--muted)"><span class="en">Downloads the skill, then shows a picker: agents found on your machine are pre-selected, type numbers to toggle. Works for Claude Code, Codex, opencode, Gemini, Antigravity, Cursor, Kiro, Qwen and more. Never overwrites or deletes. Flags: <code>--detected --yes</code>, <code>--agents claude,codex</code>, <code>--list</code>, <code>--dry-run</code>, <code>--instructions</code>, <code>--uninstall</code>.</span><span class="tr">Skill'i indirir, sonra bir seçici gösterir: makinendeki ajanlar önceden seçili, numara yazarak aç/kapat. Claude Code, Codex, opencode, Gemini, Antigravity, Cursor, Kiro, Qwen ve diğerleri. Hiçbir şeyin üstüne yazmaz, silmez. Bayraklar: <code>--detected --yes</code>, <code>--agents claude,codex</code>, <code>--list</code>, <code>--dry-run</code>, <code>--instructions</code>, <code>--uninstall</code>.</span></p>
-</section>
+<section id="prompts"><div class="wrap">
+  <span class="eyebrow"><span class="en">Prompts</span><span class="tr">İstemler</span></span>
+  <h2><span class="en">Just ask. You never name the skill.</span><span class="tr">Sadece iste. Skill'in adını söylemene gerek yok.</span></h2>
+  <p class="lede"><span class="en">Click a prompt to copy it. The more real context you give (a repo path, a screenshot, an app name), the better it gets.</span><span class="tr">Kopyalamak için bir isteme tıkla. Ne kadar gerçek bağlam verirsen (repo yolu, ekran görüntüsü, uygulama adı) sonuç o kadar iyi olur.</span></p>
+  <p class="prcat"><span class="en">Start simple</span><span class="tr">Basit başla</span></p>
+  <div class="prompts">
+    <button class="pr" type="button" data-ok="Copied"><span class="en">Design the main screens of a mobile habit tracker app: today view, streak details, add a habit.</span><span class="tr">Mobil bir alışkanlık takip uygulamasının ana ekranlarını tasarla: bugün, seri detayı, alışkanlık ekle.</span></button>
+    <button class="pr" type="button" data-ok="Copied"><span class="en">Design a sales analytics dashboard for a small online shop. Show an empty state and an error state too.</span><span class="tr">Küçük bir online mağaza için satış analiz paneli tasarla. Boş ve hata durumlarını da göster.</span></button>
+    <button class="pr" type="button" data-ok="Copied"><span class="en">Design a macOS menu bar Pomodoro timer with a popover: running, paused, break and settings.</span><span class="tr">macOS menü çubuğu için bir Pomodoro zamanlayıcı tasarla: çalışıyor, duraklatıldı, mola ve ayarlar.</span></button>
+  </div>
+  <p class="prcat"><span class="en">Ground it in something real</span><span class="tr">Gerçek bir şeye bağla</span></p>
+  <div class="prompts">
+    <button class="pr" type="button" data-ok="Copied"><span class="en">Design a new "Disk" page for the app in ~/projects/monitor. Read its source, reuse its real colors and timings, and do not modify it.</span><span class="tr">~/projeler/monitor uygulamasına yeni bir Disk sayfası tasarla. Kaynağını oku, gerçek renk ve süreleri kullan, hiçbir dosyayı değiştirme.</span></button>
+    <button class="pr" type="button" data-ok="Copied"><span class="en">Here is a screenshot of an app I like. Design our dashboard in the same spirit, but with our own palette.</span><span class="tr">Beğendiğim bir uygulamanın ekran görüntüsü burada. Panelimizi aynı ruhta ama kendi paletimizle tasarla.</span></button>
+    <button class="pr" type="button" data-ok="Copied"><span class="en">Redesign the settings page of my Electron app. Keep its spacing scale and its existing components.</span><span class="tr">Electron uygulamamın ayarlar sayfasını yeniden tasarla. Boşluk ölçeğini ve mevcut bileşenleri koru.</span></button>
+  </div>
+  <p class="prcat"><span class="en">Steer it</span><span class="tr">Yönlendir</span></p>
+  <div class="prompts">
+    <button class="pr" type="button" data-ok="Copied"><span class="en">Give me 3 options for a settings page that differ in structure, not just color.</span><span class="tr">Ayarlar sayfası için yapıca birbirinden farklı 3 seçenek ver, sadece renkte değil.</span></button>
+    <button class="pr" type="button" data-ok="Copied"><span class="en">I only want ONE restrained direction. Neutral, no neon, no gradients.</span><span class="tr">Sadece TEK bir sakin yön istiyorum. Nötr, neon ve gradyan yok.</span></button>
+    <button class="pr" type="button" data-ok="Copied"><span class="en">The first option is closest. Make the hover state clearer and add the error and loading boards.</span><span class="tr">İlk seçenek en yakını. Hover durumunu netleştir, hata ve yükleniyor tahtalarını ekle.</span></button>
+    <button class="pr" type="button" data-ok="Copied"><span class="en">Compare 8 fonts for the headline and the numbers, using the real strings including Turkish characters.</span><span class="tr">Başlık ve rakamlar için 8 fontu, Türkçe karakterler dahil gerçek metinlerle karşılaştır.</span></button>
+    <button class="pr" type="button" data-ok="Copied"><span class="en">The design is approved. Export the tokens as CSS variables and list the components per board.</span><span class="tr">Tasarım onaylandı. Tokenları CSS değişkenleri olarak aktar ve tahta başına bileşenleri listele.</span></button>
+  </div>
+  <p style="margin-top:24px"><a href="https://github.com/lunanoir21/spec-mockup-design/blob/main/docs/PROMPTS.md"><span class="en">More prompts, including Linux desktop widgets and Turkish ones →</span><span class="tr">Linux masaüstü widget'ları ve Türkçeler dahil daha fazla istem →</span></a></p>
+</div></section>
 
-<section id="tools">
-  <h2><span class="en">What ships</span><span class="tr">İçinde ne var</span></h2>
+<section id="install"><div class="wrap">
+  <span class="eyebrow"><span class="en">Install</span><span class="tr">Kurulum</span></span>
+  <h2><span class="en">One command. You pick the agents.</span><span class="tr">Tek komut. Ajanları sen seçersin.</span></h2>
+  <div class="cols2" style="margin-top:28px">
+    <div>
+      <div class="install" style="max-width:none"><code id="ic">curl -fsSL https://raw.githubusercontent.com/lunanoir21/spec-mockup-design/main/install.sh | bash</code><button type="button" data-copy="ic"><span class="en">Copy</span><span class="tr">Kopyala</span></button></div>
+      <p class="lede" style="font-size:16px"><span class="en">It downloads the skill, then shows a picker. Agents found on your machine are pre-selected. It never overwrites an existing file and only removes the links it created (<code>--uninstall</code>). Needs Python 3.8+; Chromium or Chrome is optional, for screenshots.</span><span class="tr">Skill'i indirir, sonra bir seçici gösterir. Makinende bulunan ajanlar önceden seçili gelir. Var olan hiçbir dosyanın üstüne yazmaz, yalnızca kendi koyduğu bağlantıları kaldırır (<code>--uninstall</code>). Python 3.8+ gerekir; ekran görüntüleri için Chromium veya Chrome isteğe bağlı.</span></p>
+      <p class="lede" style="font-size:15px"><span class="en">Flags: <code>--detected --yes</code> <code>--agents claude,codex</code> <code>--all</code> <code>--list</code> <code>--dry-run</code> <code>--instructions</code> <code>--copy</code></span><span class="tr">Bayraklar: <code>--detected --yes</code> <code>--agents claude,codex</code> <code>--all</code> <code>--list</code> <code>--dry-run</code> <code>--instructions</code> <code>--copy</code></span></p>
+    </div>
+    <div class="term" style="margin-top:0"><div class="chrome"><i></i><i></i><i></i><span>install.sh</span></div><pre><b>spec-mockup-design</b>  install for
+<span class="d">Detected agents are pre-selected. Type numbers to toggle.</span>
+   1) <span class="g">[x]</span> Claude Code        <span class="d">detected</span>
+   2) <span class="g">[x]</span> Codex CLI          <span class="d">detected</span>
+   3) <span class="g">[x]</span> opencode           <span class="d">detected</span>
+   4) [ ] Gemini CLI
+   5) [ ] Antigravity (agy)
+   6) <span class="g">[x]</span> Cursor             <span class="d">detected</span>
+   7) [ ] Kiro
+   ...
+<span class="a">&gt;</span> 1 3
+<span class="g">  ✓</span> Codex CLI: linked -> ~/.codex/skills/spec-mockup-design
+<span class="g">  ✓</span> Cursor: linked -> ~/.cursor/skills/spec-mockup-design</pre></div>
+  </div>
+  <div class="agrid" id="agrid"></div>
+</div></section>
+
+<section id="numbers"><div class="wrap">
+  <span class="eyebrow"><span class="en">Under the hood</span><span class="tr">Kaputun altında</span></span>
+  <h2><span class="en">Tools you can also use alone.</span><span class="tr">Tek başına da kullanabileceğin araçlar.</span></h2>
+  <div class="stats">
+    <div class="stat"><b>98</b><span><span class="en">self-tests, run in CI</span><span class="tr">öz-test, CI'da çalışır</span></span></div>
+    <div class="stat"><b>14</b><span><span class="en">agents supported</span><span class="tr">desteklenen ajan</span></span></div>
+    <div class="stat"><b id="n-demos">11</b><span><span class="en">real demo canvases</span><span class="tr">gerçek demo canvas</span></span></div>
+    <div class="stat"><b>0</b><span><span class="en">dependencies (Python stdlib)</span><span class="tr">bağımlılık (Python stdlib)</span></span></div>
+  </div>
   <div class="tw"><table class="tools"><tbody>
-    <tr><td><code>palette.py</code></td><td><span class="en">Harmonious light and dark palette from one hue, tinted neutrals, semantic and chart colors.</span><span class="tr">Tek tondan uyumlu açık ve koyu palet, boyalı nötrler, durum ve grafik renkleri.</span></td></tr>
+    <tr><td><code>palette.py</code></td><td><span class="en">A harmonious light and dark palette from one hue: tinted neutrals, semantic and chart colors, every pair WCAG-fixed.</span><span class="tr">Tek tondan uyumlu açık ve koyu palet: boyalı nötrler, durum ve grafik renkleri, her çift WCAG'a göre düzeltilmiş.</span></td></tr>
     <tr><td><code>slop-lint.py</code></td><td><span class="en">0-100 slop score with the reason for every flag.</span><span class="tr">Her uyarının nedeniyle 0-100 slop puanı.</span></td></tr>
-    <tr><td><code>new-canvas.py</code></td><td><span class="en">Scaffolds the pan and zoom canvas. <code>canvasify.py</code> adds it to any hand-written HTML.</span><span class="tr">Gezilebilir canvas iskeleti kurar. <code>canvasify.py</code> elle yazılmış her HTML'e ekler.</span></td></tr>
-    <tr><td><code>extract-tokens.py</code></td><td><span class="en">Counts real colors, durations, easings and fonts in your codebase.</span><span class="tr">Kod tabanındaki gerçek renk, süre, easing ve fontları sayar.</span></td></tr>
-    <tr><td><code>install.sh</code></td><td><span class="en">One-command installer with an agent picker.</span><span class="tr">Ajan seçicili tek komutlu kurulum.</span></td></tr>
-    <tr><td><code>shoot.sh</code> <code>check-done.py</code></td><td><span class="en">Headless screenshots of every board and a delivery receipt.</span><span class="tr">Her tahtanın ekran görüntüsü ve teslim fişi.</span></td></tr>
-    <tr><td><code>tests/</code></td><td><span class="en">85-test self-test and a grader for agent runs.</span><span class="tr">85 testlik öz-test ve ajan koşuları için notlayıcı.</span></td></tr>
+    <tr><td><code>new-canvas.py</code> <code>canvasify.py</code></td><td><span class="en">Scaffold the pan and zoom canvas, or add it to any hand-written HTML.</span><span class="tr">Gezilebilir canvas iskeleti kurar veya elle yazılmış her HTML'e ekler.</span></td></tr>
+    <tr><td><code>extract-tokens.py</code></td><td><span class="en">Counts the real colors, durations, easings and fonts in your codebase.</span><span class="tr">Kod tabanındaki gerçek renk, süre, easing ve fontları sayar.</span></td></tr>
+    <tr><td><code>contrast.py</code> <code>scales.py</code></td><td><span class="en">WCAG and color-blind checks; type, spacing, radius and motion tokens.</span><span class="tr">WCAG ve renk körlüğü kontrolleri; yazı, boşluk, radius ve hareket tokenları.</span></td></tr>
+    <tr><td><code>shoot.sh</code> <code>check-done.py</code></td><td><span class="en">Headless screenshots of every board, and a delivery receipt that proves the work exists.</span><span class="tr">Her tahtanın ekran görüntüsü ve işin var olduğunu kanıtlayan teslim fişi.</span></td></tr>
   </tbody></table></div>
-</section>
-
-<footer><span>MIT</span><a href="https://github.com/lunanoir21/spec-mockup-design">GitHub</a><a href="https://github.com/lunanoir21/spec-mockup-design/blob/main/README.md">README</a><a href="https://github.com/lunanoir21/spec-mockup-design/blob/main/README.tr.md">Türkçe README</a></footer>
+</div></section>
 </main>
+
+<footer><div class="wrap"><span>MIT</span><a href="https://github.com/lunanoir21/spec-mockup-design">GitHub</a><a href="https://github.com/lunanoir21/spec-mockup-design/blob/main/README.md">README</a><a href="https://github.com/lunanoir21/spec-mockup-design/blob/main/README.tr.md">Türkçe README</a><a href="https://github.com/lunanoir21/spec-mockup-design/blob/main/docs/PROMPTS.md">Prompts</a></div></footer>
+
+<dialog class="viewer" id="viewer" aria-label="Demo canvas">
+  <div class="vtop"><span class="vt" id="vt"></span><span class="vq" id="vq"></span><span class="vhint"><span class="en">Drag · Ctrl+wheel · F</span><span class="tr">Sürükle · Ctrl+tekerlek · F</span></span><button class="vbtn" id="vprev" type="button">←</button><button class="vbtn" id="vnext" type="button">→</button><a class="vbtn" id="vopen" href="#" target="_blank" rel="noopener"><span class="en">New tab</span><span class="tr">Yeni sekme</span></a><button class="vbtn" id="vclose" type="button"><span class="en">Close</span><span class="tr">Kapat</span></button></div>
+  <iframe id="vframe" title="Demo canvas"></iframe>
+</dialog>
+
 <script>
+/*GALLERY_START*/
+var GALLERY = [
+ {
+  "id": "habit",
+  "title": "Habit tracker",
+  "platform": "Mobile",
+  "prompt": "Design the main screens of a mobile habit tracker app: today view, streak details, add a habit. iOS style.",
+  "model": "claude + skill",
+  "boards": 8,
+  "score": 87,
+  "src": "demos/habit.html",
+  "thumb": "img/habit.jpg"
+ },
+ {
+  "id": "analytics",
+  "title": "Sales analytics",
+  "platform": "Web",
+  "prompt": "Design a sales analytics dashboard for a small online shop: revenue, orders, top products and a filterable table. Desktop web.",
+  "model": "space-bunny-free",
+  "boards": 8,
+  "score": 90,
+  "src": "demos/analytics.html",
+  "thumb": "img/analytics.jpg"
+ },
+ {
+  "id": "book-tracker",
+  "title": "Book tracker",
+  "platform": "Web",
+  "prompt": "Design the main screen of a book tracking web app (reading list, progress, notes). Give me 3 options.",
+  "model": "space-bunny-free",
+  "boards": 15,
+  "score": 92,
+  "src": "demos/book-tracker.html",
+  "thumb": "img/book-tracker.jpg"
+ },
+ {
+  "id": "menubar",
+  "title": "Pomodoro menu bar",
+  "platform": "macOS",
+  "prompt": "Design a macOS menu bar app: a Pomodoro focus timer with a popover showing running, paused, break and settings.",
+  "model": "big-pickle",
+  "boards": 8,
+  "score": 85,
+  "src": "demos/menubar.html",
+  "thumb": "img/menubar.jpg"
+ },
+ {
+  "id": "extension",
+  "title": "Tab manager popup",
+  "platform": "Browser",
+  "prompt": "Design a browser extension popup for tab management: tab list, search, groups, empty state and error state.",
+  "model": "big-pickle",
+  "boards": 8,
+  "score": 72,
+  "src": "demos/extension.html",
+  "thumb": "img/extension.jpg"
+ },
+ {
+  "id": "game",
+  "title": "Farm inventory and crafting",
+  "platform": "Game",
+  "prompt": "Design an inventory and crafting UI for a cozy indie farming game.",
+  "model": "space-bunny-free",
+  "boards": 8,
+  "score": 95,
+  "src": "demos/game.html",
+  "thumb": "img/game.jpg"
+ },
+ {
+  "id": "weather",
+  "title": "Weather widget",
+  "platform": "Widget",
+  "prompt": "Design a desktop weather widget: current temperature, 5-day forecast and alerts.",
+  "model": "space-bunny-free",
+  "boards": 8,
+  "score": 87,
+  "src": "demos/weather.html",
+  "thumb": "img/weather.jpg"
+ },
+ {
+  "id": "cpu-fan",
+  "title": "CPU and fan widget",
+  "platform": "Linux bar",
+  "prompt": "Design a CPU temperature and fan speed widget for a Linux status bar. Show idle, warning and critical states.",
+  "model": "space-bunny-free",
+  "boards": 22,
+  "score": 92,
+  "src": "demos/cpu-fan.html",
+  "thumb": "img/cpu-fan.jpg"
+ }
+];
+/*GALLERY_END*/
 (function(){
  var root=document.documentElement;
  function setLang(l){root.dataset.lang=l;root.lang=l;document.querySelectorAll('.lang button').forEach(function(b){b.setAttribute('aria-pressed',b.dataset.l===l)});try{localStorage.setItem('smd-lang',l)}catch(e){}}
  document.querySelectorAll('.lang button').forEach(function(b){b.onclick=function(){setLang(b.dataset.l)}});
  var l=null;try{l=localStorage.getItem('smd-lang')}catch(e){} if(!l&&/^tr/i.test(navigator.language||''))l='tr'; if(l)setLang(l);
- var tabs=[].slice.call(document.querySelectorAll('.tabs [role=tab]')),f=document.getElementById('frame'),n=document.getElementById('dn'),o=document.getElementById('dopen');
- function show(t){tabs.forEach(function(b){b.setAttribute('aria-selected',b===t)});f.src=t.dataset.src;o.href=t.dataset.src;n.textContent=t.dataset.n}
- tabs.forEach(function(b,i){b.onclick=function(){show(b)};b.onkeydown=function(e){var j=e.key==='ArrowRight'?i+1:e.key==='ArrowLeft'?i-1:-1;if(j>=0&&tabs[j]){tabs[j].focus();show(tabs[j])}}});
- show(tabs[0]);
- document.querySelectorAll('.pr').forEach(function(b){b.onclick=function(){var t=b.querySelector(root.dataset.lang==='tr'?'.tr':'.en').textContent.trim();function ok(){b.classList.add('ok');setTimeout(function(){b.classList.remove('ok')},1500)}if(navigator.clipboard&&navigator.clipboard.writeText)navigator.clipboard.writeText(t).then(ok,function(){});else ok()}});
- document.querySelectorAll('.copy').forEach(function(b){b.onclick=function(){var el=document.getElementById(b.dataset.t),txt=el.innerText.replace(/^Copy\s*/,'');
-  function done(){b.textContent='Copied';setTimeout(function(){b.textContent='Copy'},1500)}
-  if(navigator.clipboard&&navigator.clipboard.writeText){navigator.clipboard.writeText(txt).then(done,function(){var r=document.createRange();r.selectNodeContents(el);var s=getSelection();s.removeAllRanges();s.addRange(r)})}}});
+ function copyText(t,done){if(navigator.clipboard&&navigator.clipboard.writeText){navigator.clipboard.writeText(t).then(done,function(){})}else done()}
+ document.querySelectorAll('[data-copy]').forEach(function(b){b.onclick=function(){var t=document.getElementById(b.dataset.copy).textContent;copyText(t,function(){var o=b.innerHTML;b.textContent='✓';setTimeout(function(){b.innerHTML=o},1400)})}});
+ document.querySelectorAll('.pr').forEach(function(b){b.onclick=function(){var t=b.querySelector(root.dataset.lang==='tr'?'.tr':'.en').textContent.trim();copyText(t,function(){b.classList.add('ok');setTimeout(function(){b.classList.remove('ok')},1400)})}});
+ /* gallery */
+ var cards=document.getElementById('cards'),filters=document.getElementById('filters'),cur='All',shown=[];
+ var plats=['All'];GALLERY.forEach(function(g){if(plats.indexOf(g.platform)<0)plats.push(g.platform)});
+ function esc(s){return String(s).replace(/[&<>"]/g,function(c){return{'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]})}
+ function render(){
+  shown=GALLERY.filter(function(g){return cur==='All'||g.platform===cur});
+  cards.innerHTML=shown.length?shown.map(function(g,i){return '<button class="card" type="button" data-i="'+i+'"><div class="thumb"><img src="'+esc(g.thumb)+'" alt="'+esc(g.title)+' canvas preview" loading="lazy"><span class="plat">'+esc(g.platform)+'</span></div><div class="body"><h3>'+esc(g.title)+'</h3><p class="q">“'+esc(g.prompt)+'”</p><div class="meta"><span><b>'+g.boards+'</b> boards</span><span>slop <b>'+g.score+'</b></span><span>'+esc(g.model)+'</span></div></div></button>'}).join(''):'<div class="empty">No demos yet.</div>';
+  filters.innerHTML=plats.map(function(p){return '<button class="chip" type="button" aria-pressed="'+(p===cur)+'" data-p="'+esc(p)+'">'+esc(p)+'</button>'}).join('');
+ }
+ filters.addEventListener('click',function(e){var b=e.target.closest('.chip');if(!b)return;cur=b.dataset.p;render()});
+ var vw=document.getElementById('viewer'),vf=document.getElementById('vframe'),vi=0;
+ function openV(i){vi=(i+shown.length)%shown.length;var g=shown[vi];document.getElementById('vt').textContent=g.title;document.getElementById('vq').textContent='“'+g.prompt+'”';document.getElementById('vopen').href=g.src;vf.src=g.src;if(!vw.open){if(vw.showModal)vw.showModal();else vw.setAttribute('open','')}document.body.style.overflow='hidden'}
+ function closeV(){vw.close?vw.close():vw.removeAttribute('open');vf.removeAttribute('src');document.body.style.overflow=''}
+ cards.addEventListener('click',function(e){var c=e.target.closest('.card');if(c)openV(+c.dataset.i)});
+ document.getElementById('vclose').onclick=closeV;vw.addEventListener('close',function(){vf.removeAttribute('src');document.body.style.overflow=''});
+ document.getElementById('vprev').onclick=function(){openV(vi-1)};document.getElementById('vnext').onclick=function(){openV(vi+1)};
+ render();
+ var nd=document.getElementById('n-demos');if(nd&&GALLERY.length)nd.textContent=GALLERY.length;
+ var good=GALLERY.filter(function(g){return g.id==='habit'})[0];
+ if(good){document.getElementById('ba-good').src=good.thumb;document.getElementById('ba-score').textContent='slop '+good.score+'/100';var m=document.getElementById('ba-meta');if(m)m.textContent=good.boards+' boards · generated palette · one concept'}
+ /* agents */
+ var A=[['Claude Code','skills'],['Codex CLI','skills'],['opencode','skills'],['Gemini CLI','skills'],['Antigravity','skills'],['Cursor','skills'],['Kiro','skills'],['Qwen Code','skills'],['zcode','skills'],['pi','skills'],['Qoder','skills'],['Grok CLI','skills'],['Hermes','skills'],['jcode','skills']];
+ document.getElementById('agrid').innerHTML=A.map(function(a){return '<div><span>'+a[0]+'</span><small>✓</small></div>'}).join('');
 })();
 </script>
 </body>

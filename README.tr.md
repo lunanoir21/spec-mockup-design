@@ -21,7 +21,7 @@ sol kenar çizgili kutular, lorem ipsum ve tek bir güzel durum. Bu skill onun y
 | ![genel](assets/shot-overview.jpg) | ![odak](assets/shot-focus.jpg) |
 | ![hava durumu widget](assets/shot-weather.jpg) | ![cpu fan widget](assets/shot-cpu.jpg) |
 
-Dördü de bu skill'i izleyen ücretsiz opencode modelleriyle üretildi. [Canlı demoda](https://lunanoir21.github.io/spec-mockup-design/) kendin gezip yakınlaştırabilirsin.
+[Canlı galeride](https://lunanoir21.github.io/spec-mockup-design/#gallery) farklı platformlar için sekiz canvas var: mobil alışkanlık takipçisi, satış paneli, macOS menü çubuğu uygulaması, tarayıcı eklentisi, oyun envanteri, web uygulaması, masaüstü widget'ı ve Linux çubuk widget'ı. Çoğu bu skill'i izleyen ücretsiz opencode modelleriyle üretildi. Birini açıp kendin gezebilirsin.
 
 ## Kurulum
 
@@ -68,7 +68,7 @@ Dosya yapısı ve her scriptin görevi için [İngilizce README](README.md#what-
 ## İşe yarıyor mu?
 
 Ücretsiz opencode modelleriyle 9 gerçek ajan koşusu (istemde skill'in adı geçmeden): 8'inde skill bulunup kullanıldı, 5'i tam puan aldı.
-Başarısızlıklar doğrudan düzeltmelere dönüştü (uydurma rapora karşı teslim fişi, boş tahta kuralı, ilk palet tarifini kopyalamaya karşı klişe kuralı). Script testleri 85/85 geçiyor.
+Başarısızlıklar doğrudan düzeltmelere dönüştü (uydurma rapora karşı teslim fişi, boş tahta kuralı, ilk palet tarifini kopyalamaya karşı klişe kuralı). Script testleri 99/99 geçiyor.
 
 Dürüst sınırlar: denetleyici zevki değil varsayılanları ölçer, ekran görüntülerine bakmak gerekir. Kalite modele bağlı; bazı modeller erken bırakıyor veya çok uzun cilalıyor.
 

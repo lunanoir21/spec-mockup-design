@@ -1,0 +1,1259 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Thistledown Vale — Pantry &amp; Bench</title>
+<!-- CHANGELOG
+  r1: scaffold
+  r2: tokens generated (palette.py hue 128 calm analogous / scales.py app normal unit 4 ratio 1.25);
+      8 boards filled; Firelight dark theme authored as its own design, not an inversion.
+-->
+<style>
+/* ===== fonts (latin subsets, fetched from Google Fonts and stored locally) ===== */
+@font-face{font-family:'Instrument Sans';src:url(fonts/InstrumentSans-0.woff2) format('woff2');font-weight:400 700;font-style:normal;font-display:swap}
+@font-face{font-family:'Fraunces';src:url(fonts/Fraunces-0.woff2) format('woff2');font-weight:100 900;font-style:normal;font-display:swap}
+@font-face{font-family:'Bricolage Grotesque';src:url(fonts/BricolageGrotesque-0.woff2) format('woff2');font-weight:200 800;font-style:normal;font-display:swap}
+@font-face{font-family:'Newsreader';src:url(fonts/Newsreader-0.woff2) format('woff2');font-weight:200 800;font-style:normal;font-display:swap}
+@font-face{font-family:'Public Sans';src:url(fonts/PublicSans-0.woff2) format('woff2');font-weight:100 900;font-style:normal;font-display:swap}
+@font-face{font-family:'Lexend';src:url(fonts/Lexend-0.woff2) format('woff2');font-weight:100 900;font-style:normal;font-display:swap}
+
+/* ===== TOKENS: generated, see design/palette.css + design/scales.css ===== */
+:root{
+  /* palette.py --hue 128 --mood calm --scheme analogous (light) */
+  --bg:#f2f4f0; --surface:#f8faf6; --raised:#fdfefb; --line:#d6d8d3; --text:#1e201c; --muted:#676a64;
+  --accent:#4c691c; --accent-soft:#e0edd3; --on-accent:#ffffff;
+  --danger:#953e37; --warn:#7d540a; --ok:#326c41; --info:#216587;
+  /* scales.py --target app --density normal --unit 4 --ratio 1.25 */
+  --fs-2xs:11px; --fs-xs:12.5px; --fs-s:14px; --fs-m:17.5px; --fs-l:22px; --fs-xl:27.5px; --fs-2xl:34px;
+  --sp-1:4px; --sp-2:8px; --sp-3:12px; --sp-4:16px; --sp-5:24px; --sp-6:32px; --sp-7:48px;
+  --radius-s:4px; --radius-m:8px; --radius-l:14px; --radius-pill:999px;
+  --dur-micro:120ms; --dur-small:200ms; --dur-large:300ms; --dur-xl:450ms;
+  --ease-out:cubic-bezier(.2,.8,.2,1); --ease-in:cubic-bezier(.4,0,1,1);
+  --stroke:1.5px; --icon-s:16px; --icon-m:20px; --icon-l:24px;
+  --font-ui:'Instrument Sans','Public Sans','Noto Sans',sans-serif;
+  --font-display:'Fraunces','Newsreader',Georgia,serif;
+  --font-alt:'Bricolage Grotesque','Public Sans',sans-serif;
+  --font-serif:'Newsreader',Georgia,serif;
+  --font-geo:'Lexend','Public Sans',sans-serif;
+  --font-civic:'Public Sans','Noto Sans',sans-serif;
+  /* canvas chrome (not part of the design) */
+  --canvas:#dde4e1; --chrome:#566360;
+}
+/* Firelight: authored dark, warm-biased surfaces, lifted accent — not an inversion */
+:root[data-theme="night"]{
+  --bg:#0f100d; --surface:#131411; --raised:#1b1913; --line:#26251d; --text:#dcdfda; --muted:#9da099;
+  --accent:#97b86c; --accent-soft:#1f2813; --on-accent:#0f100d;
+  --danger:#ec8c82; --warn:#cfa262; --ok:#80bb8c; --info:#72b4da;
+  --canvas:#0a0b09; --chrome:#7c837a;
+}
+*{box-sizing:border-box}
+html{background:var(--canvas)}
+body{margin:0;font:14px/1.5 var(--font-ui);color:#14201c}
+.shell{padding:24px 16px 80px;max-width:1700px;margin:0 auto}
+h1{font:600 20px/1.2 var(--font-ui);margin:0 0 4px}
+.sub{color:var(--chrome);margin:0 0 16px;font-size:13px}
+nav.index{display:flex;flex-wrap:wrap;gap:6px 12px;margin:0 0 24px;padding:0 0 12px;border-bottom:1px solid #c3ccc8}
+nav.index a{color:#14201c;text-decoration:none;font-size:13px;border-bottom:1px solid transparent}
+nav.index a:hover{border-bottom-color:currentColor}
+.themes{display:flex;gap:8px;margin:0 0 16px;flex-wrap:wrap}
+.themes button{font:inherit;font-size:12px;padding:4px 10px;border:1px solid #b0bab6;background:transparent;border-radius:999px;cursor:pointer}
+.themes button[aria-pressed=true]{background:#14201c;color:#eef3f1;border-color:#14201c}
+.grid{display:flex;flex-wrap:wrap;gap:32px 28px;align-items:flex-start}
+.board{display:flex;flex-direction:column;gap:8px;max-width:100%}
+.board>header{display:flex;gap:8px;align-items:baseline;font-size:12px;color:var(--chrome)}
+.board>header b{color:#14201c;font-weight:600}
+.board>header code{font:11px var(--font-civic);opacity:.8}
+.artboard{background:var(--bg);color:var(--text);font:14px/1.5 var(--font-ui);border:1px solid #c3ccc8;overflow:hidden;position:relative}
+.note{max-width:var(--w,520px);font-size:12px;color:var(--chrome)}
+body.only .shell>h1,body.only .sub,body.only nav.index,body.only .themes{display:none}
+body.only .shell{padding:12px}
+body.only .board:not(.on){display:none}
+@media (max-width:600px){.artboard{max-width:100%}}
+@media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
+
+/* ================= shared product components ================= */
+.ab{font-variant-numeric:tabular-nums lining-nums;font-feature-settings:"tnum" 1}
+.num{font-family:var(--font-display);font-variant-numeric:lining-nums tabular-nums;letter-spacing:-.015em}
+.lbl{font-size:var(--fs-xs);color:var(--muted)}
+h3.ph{font:600 var(--fs-m)/1.25 var(--font-ui);margin:0;letter-spacing:-.005em}
+svg.ic{width:var(--icon-m);height:var(--icon-m);stroke:currentColor;fill:none;stroke-width:var(--stroke);stroke-linecap:round;stroke-linejoin:round;flex:none}
+svg.ic.s{width:var(--icon-s);height:var(--icon-s)}
+svg.ic.l{width:var(--icon-l);height:var(--icon-l)}
+
+.screen{display:flex;flex-direction:column;height:100%;background:var(--bg);color:var(--text)}
+.cols{display:flex;gap:var(--sp-5);flex:1;min-height:0}
+.panel{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius-l);display:flex;flex-direction:column;min-height:0}
+.ptitle{display:flex;align-items:center;justify-content:space-between;gap:var(--sp-2);padding:var(--sp-3) var(--sp-4);border-bottom:1px solid var(--line);flex:none}
+.ptitle h3{font:600 var(--fs-s)/1 var(--font-ui);margin:0;display:flex;align-items:center;gap:var(--sp-2)}
+.pbody{padding:var(--sp-4);overflow:hidden;flex:1;min-height:0}
+
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:var(--sp-2);font:500 var(--fs-s)/1 var(--font-ui);
+     padding:0 var(--sp-4);height:40px;border-radius:var(--radius-m);border:1px solid var(--line);background:var(--raised);color:var(--text);cursor:pointer;transition:background var(--dur-micro) var(--ease-out)}
+.btn.primary{background:var(--accent);border-color:var(--accent);color:var(--on-accent);font-weight:600}
+.btn.primary:disabled{background:var(--surface);border-color:var(--line);color:var(--muted);font-weight:500;cursor:not-allowed}
+.btn.ghost{background:transparent}
+.btn:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+
+.chip{display:inline-flex;align-items:center;gap:6px;font-size:var(--fs-xs);padding:2px 8px;border-radius:var(--radius-pill);
+      background:var(--surface);border:1px solid var(--line);color:var(--muted)}
+.chip.ok{color:var(--ok);border-color:var(--ok);background:transparent}
+.chip.warn{color:var(--warn);border-color:var(--warn);background:transparent}
+.chip.accent{color:var(--accent);border-color:var(--accent);background:var(--accent-soft)}
+
+.slot{width:44px;height:44px;border-radius:var(--radius-s);border:1px solid var(--line);background:var(--raised);
+      display:flex;align-items:center;justify-content:center;position:relative;color:var(--text)}
+.slot.empty{background:transparent;border-style:dashed;border-color:var(--line)}
+.slot.sel{border-color:var(--accent);box-shadow:inset 0 0 0 1px var(--accent)}
+.slot .q{position:absolute;right:2px;bottom:1px;font:600 10px/1 var(--font-civic);color:var(--muted)}
+.slot .q.zero{color:var(--danger)}
+.grid8{display:grid;grid-template-columns:repeat(8,44px);gap:var(--sp-1)}
+.grid12{display:grid;grid-template-columns:repeat(12,56px);gap:6px}
+.grid44{display:grid;grid-template-columns:repeat(4,272px);gap:var(--sp-4)}
+
+/* recipe card */
+.rcard{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius-m);padding:var(--sp-3);
+       display:flex;gap:var(--sp-3);align-items:center;position:relative;transition:background var(--dur-micro) var(--ease-out),border-color var(--dur-micro) var(--ease-out)}
+.rcard .thumb{width:52px;height:52px;border-radius:var(--radius-s);background:var(--raised);border:1px solid var(--line);display:flex;align-items:center;justify-content:center;flex:none}
+.rcard .thumb.short{background:transparent}
+.rcard .rmain{min-width:0;flex:1}
+.rcard .rname{font:600 var(--fs-s)/1.3 var(--font-ui)}
+.rcard .rsub{font-size:var(--fs-xs);color:var(--muted);margin-top:2px;display:flex;align-items:center;gap:6px}
+.rcard.hov{background:var(--raised);border-color:var(--accent)}
+.rcard.foc{background:var(--raised);border-color:var(--accent);outline:2px solid var(--accent);outline-offset:2px}
+.rcard.sel{background:var(--raised);border-color:var(--accent)}
+.rcard.sel::before{content:"";position:absolute;left:0;right:0;top:-1px;height:3px;background:var(--accent);border-radius:3px 3px 0 0}
+.rcard.dis{opacity:.62}
+.needs{display:flex;flex-wrap:wrap;gap:6px;margin-top:6px}
+.need{display:inline-flex;align-items:center;gap:4px;font-size:var(--fs-xs);color:var(--muted);border:1px solid var(--line);
+      border-radius:var(--radius-s);padding:1px 6px;background:var(--raised)}
+.need.short{color:var(--warn);border-color:var(--warn);background:transparent;font-weight:600}
+
+/* ingredient subtraction row (the bold move) */
+.ledger-row{display:grid;grid-template-columns:20px 1fr auto;gap:var(--sp-2);align-items:center;padding:7px 0;border-bottom:1px dashed var(--line)}
+.ledger-row:last-of-type{border-bottom:0}
+.ledger-row .lname{font-size:var(--fs-s);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.ledger-row .lmath{display:flex;align-items:baseline;gap:6px;font-size:var(--fs-xs);color:var(--muted)}
+.ledger-row .before{text-decoration:line-through;opacity:.75}
+.ledger-row .after{font:600 var(--fs-s)/1 var(--font-civic);color:var(--accent)}
+.ledger-row.short .after{color:var(--warn)}
+.rule{height:1px;background:var(--line);margin:var(--sp-3) 0}
+.outblock{background:var(--raised);border:1px solid var(--line);border-radius:var(--radius-m);padding:var(--sp-3);display:flex;gap:var(--sp-3);align-items:center}
+.outblock.ready{background:var(--accent-soft);border-color:var(--accent)}
+.outblock .ocount{font:600 var(--fs-2xl)/1 var(--font-display);letter-spacing:-.02em;margin-left:auto;font-variant-numeric:lining-nums tabular-nums}
+
+/* top bar */
+.topbar{display:flex;align-items:center;gap:var(--sp-3);padding:var(--sp-3) var(--sp-4);background:var(--surface);
+        border:1px solid var(--line);border-radius:var(--radius-l);flex:none}
+.tabs{display:flex;gap:var(--sp-1);align-items:center}
+.tab{padding:6px 12px;border-radius:var(--radius-m);font-size:var(--fs-s);color:var(--muted);border:1px solid transparent}
+.tab.on{color:var(--text);font-weight:600;background:var(--raised);border-color:var(--line)}
+.divider{width:1px;align-self:stretch;background:var(--line)}
+.statusbar{display:flex;align-items:center;gap:var(--sp-3);font-size:var(--fs-xs);color:var(--muted);flex:none}
+
+/* inventory inspector */
+.insp{display:flex;flex-direction:column;gap:var(--sp-3)}
+.insp .big{font:600 var(--fs-l)/1.15 var(--font-display);letter-spacing:-.015em}
+.kv{display:flex;justify-content:space-between;gap:var(--sp-3);font-size:var(--fs-xs);padding:5px 0;border-bottom:1px dashed var(--line)}
+.kv:last-child{border-bottom:0}
+.kv b{font-weight:600;color:var(--text);font-variant-numeric:tabular-nums}
+.scrollrail{height:3px;background:var(--line);border-radius:2px;position:relative}
+.scrollrail i{position:absolute;left:0;top:0;bottom:0;width:64%;background:var(--accent);border-radius:2px}
+.prog{height:4px;background:var(--line);border-radius:2px;overflow:hidden}
+.prog i{display:block;height:100%;background:var(--accent);border-radius:2px}
+@media (prefers-reduced-motion:reduce){.prog i{transition:none}}
+</style>
+</head>
+<body>
+<div class="shell">
+<h1>Thistledown Vale — Pantry &amp; Bench</h1>
+<p class="sub">Canvas · 8 boards · real size artboards · tokens in :root are generated by scripts/palette.py and scripts/scales.py</p>
+<div class="themes" role="group" aria-label="Theme"><button data-theme="day" aria-pressed="false">Daylight (lichen)</button><button data-theme="night" aria-pressed="false">Firelight (night)</button></div>
+<nav class="index"><a href="#concept">concept</a><a href="#craft">craft</a><a href="#shelf">shelf</a><a href="#states">states</a><a href="#motion">motion</a><a href="#type">type</a><a href="#tokens">tokens</a><a href="#night">night</a></nav>
+<div class="grid">
+
+<!-- ============================ 1. CONCEPT ============================ -->
+<section class="board" id="concept" data-board="concept" style="--w:940px">
+  <header><b>Concept, family and index</b><code>940×700</code></header>
+  <div class="artboard" style="width:940px;height:700px">
+    <div style="height:100%;padding:var(--sp-6);display:flex;flex-direction:column;gap:var(--sp-4);background:var(--bg)">
+      <div style="font-size:var(--fs-xs);color:var(--muted)">Thistledown Vale · inventory &amp; crafting · round 1</div>
+      <h2 class="num" style="font-size:var(--fs-2xl);line-height:1.1;margin:0;max-width:30ch">A pantry ledger, not a shop.</h2>
+      <p style="margin:0;max-width:62ch;color:var(--muted);font-size:var(--fs-s)">The shelf is the source of truth and the bench is a workspace laid over it. Every recipe shows the shelf
+        physically losing the ingredients before you click, so the consequence is visible first and the click only confirms it.</p>
+      <div style="display:flex;gap:var(--sp-5);align-items:stretch">
+        <div style="flex:1;background:var(--surface);border:1px solid var(--line);border-radius:var(--radius-l);padding:var(--sp-4)">
+          <div class="lbl" style="margin-bottom:6px">The one bold move</div>
+          <div style="font:600 var(--fs-m)/1.3 var(--font-display)">Quantities are arithmetic on the shelf.</div>
+          <div style="margin-top:var(--sp-3);display:flex;align-items:center;gap:var(--sp-3);font-size:var(--fs-s)">
+            <span class="ab" style="color:var(--muted)">Wheat flour</span>
+            <span class="ab">12 <span style="color:var(--muted)">→</span> 7</span>
+            <span style="color:var(--muted)">·</span>
+            <span class="ab" style="color:var(--muted)">5</span>
+            <span style="color:var(--accent);font-weight:600">bakes into</span>
+            <span class="num" style="font-size:var(--fs-l);color:var(--accent)">5</span>
+          </div>
+          <p style="margin:var(--sp-3) 0 0;font-size:var(--fs-xs);color:var(--muted)">The output count is the largest element on the screen. The button underneath it only says “Craft”.</p>
+        </div>
+        <div style="width:264px;background:var(--surface);border:1px solid var(--line);border-radius:var(--radius-l);padding:var(--sp-4)">
+          <div class="lbl" style="margin-bottom:8px">Family — lichen &amp; bark</div>
+          <div style="display:flex;height:26px;border-radius:var(--radius-s);overflow:hidden;border:1px solid var(--line)">
+            <i style="flex:1;background:var(--bg)"></i><i style="flex:1;background:var(--surface)"></i><i style="flex:1;background:var(--line)"></i>
+            <i style="flex:1;background:var(--accent)"></i><i style="flex:1;background:var(--warn)"></i><i style="flex:1;background:var(--danger)"></i><i style="flex:1;background:var(--info)"></i>
+          </div>
+          <div style="display:flex;justify-content:space-between;font-size:var(--fs-2xs);color:var(--muted);margin-top:4px"><span>ground</span><span>signal</span></div>
+          <p style="margin:var(--sp-3) 0 0;font-size:var(--fs-xs);color:var(--muted)">OKLCH hue 128, analogous, calm — generated. A farming game's ground is foliage;
+            olive is the green that reads agricultural instead of gamer-neon. Warmth lives in the bark ink and the Firelight theme, never in a cream-and-terracotta wash.</p>
+        </div>
+      </div>
+      <div style="display:flex;gap:var(--sp-5);flex:1;min-height:0">
+        <div style="flex:1;min-width:0">
+          <div class="lbl" style="margin-bottom:6px">Boards on this canvas</div>
+          <table style="width:100%;border-collapse:collapse;font-size:var(--fs-xs)">
+            <tbody>
+              <tr><td style="padding:4px 0;border-bottom:1px dashed var(--line);width:74px"><b>craft</b></td><td style="padding:4px 0;border-bottom:1px dashed var(--line);color:var(--muted)">The bench: recipes, working shelf, ledger</td></tr>
+              <tr><td style="padding:4px 0;border-bottom:1px dashed var(--line)"><b>shelf</b></td><td style="padding:4px 0;border-bottom:1px dashed var(--line);color:var(--muted)">Inventory grid + inspector, hover vs focus vs selected</td></tr>
+              <tr><td style="padding:4px 0;border-bottom:1px dashed var(--line)"><b>states</b></td><td style="padding:4px 0;border-bottom:1px dashed var(--line);color:var(--muted)">Hover, focus, pressed, disabled, loading, empty, error, overflow</td></tr>
+              <tr><td style="padding:4px 0;border-bottom:1px dashed var(--line)"><b>motion</b></td><td style="padding:4px 0;border-bottom:1px dashed var(--line);color:var(--muted)">Five frames with t=, duration and easing per stage</td></tr>
+              <tr><td style="padding:4px 0;border-bottom:1px dashed var(--line)"><b>type</b></td><td style="padding:4px 0;border-bottom:1px dashed var(--line);color:var(--muted)">Six candidate faces on the real strings</td></tr>
+              <tr><td style="padding:4px 0;border-bottom:1px dashed var(--line)"><b>tokens</b></td><td style="padding:4px 0;border-bottom:1px dashed var(--line);color:var(--muted)">Palette with contrast ratios, scale, radius, motion, icons</td></tr>
+              <tr><td style="padding:4px 0"><b>night</b></td><td style="padding:4px 0;color:var(--muted)">Firelight re-skin of the bench, authored not inverted</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <div style="width:268px;display:flex;flex-direction:column;gap:var(--sp-3)">
+          <div style="background:var(--raised);border:1px solid var(--line);border-radius:var(--radius-m);padding:var(--sp-3)">
+            <div class="lbl" style="margin-bottom:6px">Borrowed (genre convention)</div>
+            <p style="margin:0;font-size:var(--fs-xs);color:var(--muted)">Stardew-style square inventory grid with a tab bar, a recipe list that previews
+              ingredient shortfall on hover, and a right-hand detail panel that replaces the page instead of opening a modal.</p>
+          </div>
+          <div style="background:var(--raised);border:1px solid var(--line);border-radius:var(--radius-m);padding:var(--sp-3)">
+            <div class="lbl" style="margin-bottom:6px">New (this design)</div>
+            <p style="margin:0;font-size:var(--fs-xs);color:var(--muted)">The subtraction ledger, the lichen/olive family, Instrument Sans + Fraunces, the
+              Firelight dark theme, and the state set in <span class="ab">states</span>. Nothing here is copied pixel-for-pixel from any game.</p>
+          </div>
+          <div style="background:var(--raised);border:1px solid var(--line);border-radius:var(--radius-m);padding:var(--sp-3)">
+            <div class="lbl" style="margin-bottom:6px">Anti-slop self-check</div>
+            <p style="margin:0;font-size:var(--fs-xs);color:var(--muted)">No gradient wash, no glow, no left-border accent cards (selection is a 3&nbsp;px rule
+              across the top edge), no emoji, no grey placeholder boxes, one 1.5&nbsp;px icon weight throughout.</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="note">Concept, palette reason, borrowed-vs-new and the board index. The cream + terracotta + serif family was rejected: the ground is a cool sage grey and the accent is olive.</div>
+</section>
+
+<!-- ============================ 2. CRAFT ============================ -->
+<section class="board" id="craft" data-board="craft" style="--w:1180px">
+  <header><b>Bench — recipes, working shelf, ledger</b><code>1180×740</code></header>
+  <div class="artboard" style="width:1180px;height:740px">
+    <div class="screen" style="padding:var(--sp-4);gap:var(--sp-3)">
+      <!-- top bar -->
+      <div class="topbar">
+        <svg class="ic l" viewBox="0 0 24 24" style="color:var(--accent)"><path d="M12 21c0-6 0-9 0-9"/><path d="M12 12c-4 0-6-2-6-5 3 0 6 1.5 6 5Z"/><path d="M12 15c4 0 6-2 6-5-3 0-6 1.5-6 5Z"/><path d="M8 21h8"/></svg>
+        <div>
+          <h3 class="ph" style="font-size:var(--fs-m)">The bench</h3>
+          <div class="lbl ab">Day 12 · Autumn 3 · Harrow Lane</div>
+        </div>
+        <div class="divider"></div>
+        <div class="tabs" style="margin-left:var(--sp-2)">
+          <span class="tab on">All 14</span><span class="tab">Preserves 6</span><span class="tab">Bake 5</span><span class="tab">Brew 3</span>
+        </div>
+        <div style="margin-left:auto;display:flex;align-items:center;gap:var(--sp-2)">
+          <svg class="ic s" viewBox="0 0 24 24" style="color:var(--warn)"><circle cx="12" cy="12" r="8"/><path d="M12 8v8M9.5 9.8h5M9.5 14.2h5"/></svg>
+          <span class="ab" style="font-weight:600">1,284 gp</span>
+        </div>
+      </div>
+
+      <div class="cols">
+        <!-- bench -->
+        <div class="panel" style="width:350px">
+          <div class="ptitle"><h3><svg class="ic s" viewBox="0 0 24 24"><path d="M4 9h16v10H4z"/><path d="M9 9V6a3 3 0 0 1 6 0v3"/><path d="M4 14h16"/></svg>Recipes</h3><span class="lbl ab">sorted by unlocks</span></div>
+          <div class="pbody" style="display:flex;flex-direction:column;gap:var(--sp-3);padding:var(--sp-3)">
+            <!-- selected -->
+            <div class="rcard sel">
+              <div class="thumb"><svg class="ic l" viewBox="0 0 24 24"><path d="M8 3h8v3l-1 2v10a2 2 0 0 1-2 2h-2a2 2 0 0 1-2-2V8L8 6Z"/><path d="M8 14h8"/></svg></div>
+              <div class="rmain">
+                <div class="rname">Elderflower cordial</div>
+                <div class="rsub">Brew · 40 min · Halloway stall sells at 96 gp</div>
+                <div class="needs">
+                  <span class="need"><svg class="ic s" viewBox="0 0 24 24"><path d="M12 20V9"/><path d="M12 12c-3 0-5-2-5-4 3 0 5 1 5 4Z"/><path d="M12 14c3 0 5-2 5-4-3 0-5 1-5 4Z"/></svg>3</span>
+                  <span class="need"><svg class="ic s" viewBox="0 0 24 24"><path d="M9 3h6v4l-1 1v12a1 1 0 0 1-1 1h-2a1 1 0 0 1-1-1V8L9 7Z"/></svg>1</span>
+                  <span class="need"><svg class="ic s" viewBox="0 0 24 24"><path d="M7 13c0-3 2-5 5-5s5 2 5 5"/><path d="M7 13h10v6H7z"/></svg>2</span>
+                  <span class="need short"><svg class="ic s" viewBox="0 0 24 24" style="stroke:var(--danger)"><path d="M12 7v6"/><circle cx="12" cy="16.5" r=".9" fill="currentColor"/></svg>5 short</span>
+                </div>
+              </div>
+            </div>
+            <!-- hover -->
+            <div class="rcard hov">
+              <div class="thumb"><svg class="ic l" viewBox="0 0 24 24"><path d="M5 11h14l-1.5 8h-11Z"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/><path d="M9 15h6"/></svg></div>
+              <div class="rmain">
+                <div class="rname">Honey oat cake</div>
+                <div class="rsub">Bake · 25 min · unlocks at 4 hearts with Maren</div>
+                <div class="needs">
+                  <span class="need"><svg class="ic s" viewBox="0 0 24 24"><path d="M12 20V9"/><path d="M12 12c-3 0-5-2-5-4 3 0 5 1 5 4Z"/><path d="M12 14c3 0 5-2 5-4-3 0-5 1-5 4Z"/></svg>4</span>
+                  <span class="need"><svg class="ic s" viewBox="0 0 24 24"><path d="M12 4c3 4 5 6 5 8a5 5 0 0 1-10 0c0-2 2-4 5-8Z"/></svg>1</span>
+                  <span class="need short"><svg class="ic s" viewBox="0 0 24 24" style="stroke:var(--danger)"><path d="M12 7v6"/><circle cx="12" cy="16.5" r=".9" fill="currentColor"/></svg>2 short</span>
+                </div>
+              </div>
+            </div>
+            <!-- craftable -->
+            <div class="rcard">
+              <div class="thumb" style="border-color:var(--accent);background:var(--accent-soft)"><svg class="ic l" viewBox="0 0 24 24" style="color:var(--accent)"><path d="M7 3h10v5l-2 2v11H9V10L7 8Z"/><path d="M7 14h10"/></svg></div>
+              <div class="rmain">
+                <div class="rname">Barley preserve</div>
+                <div class="rsub">Preserves · 1 h · keeps 3 seasons</div>
+                <div class="needs">
+                  <span class="need"><svg class="ic s" viewBox="0 0 24 24"><path d="M12 20V9"/><path d="M12 12c-3 0-5-2-5-4 3 0 5 1 5 4Z"/><path d="M12 14c3 0 5-2 5-4-3 0-5 1-5 4Z"/></svg>3</span>
+                  <span class="need"><svg class="ic s" viewBox="0 0 24 24"><path d="M9 3h6v4l-1 1v12a1 1 0 0 1-1 1h-2a1 1 0 0 1-1-1V8L9 7Z"/></svg>1</span>
+                  <span class="chip ok" style="padding:1px 6px"><svg class="ic s" viewBox="0 0 24 24"><path d="M5 13l4 4L19 7"/></svg>ready</span>
+                </div>
+              </div>
+            </div>
+            <!-- disabled -->
+            <div class="rcard dis">
+              <div class="thumb short"><svg class="ic l" viewBox="0 0 24 24" style="color:var(--muted)"><path d="M12 3v18"/><path d="M12 7c-2 0-3.5-1-3.5-3 2 0 3.5 1 3.5 3Z"/><path d="M12 7c2 0 3.5-1 3.5-3-2 0-3.5 1-3.5 3Z"/><path d="M8 21h8"/></svg></div>
+              <div class="rmain">
+                <div class="rname">Split garlic braid</div>
+                <div class="rsub r2">Locked · needs the cellar key from Bram</div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- working shelf -->
+        <div class="panel" style="flex:1">
+          <div class="ptitle"><h3><svg class="ic s" viewBox="0 0 24 24"><path d="M3 9h18"/><path d="M3 14h18"/><path d="M4 6v13M20 6v13"/></svg>Working shelf</h3><span class="lbl ab">41 of 72 slots · nothing is sold until crafted</span></div>
+          <div class="pbody" style="display:flex;flex-direction:column;gap:var(--sp-4)">
+            <div>
+              <div class="lbl" style="margin-bottom:6px;display:flex;align-items:center;gap:6px">Preserves <span class="ab">· 9 items</span><span style="margin-left:auto"><svg class="ic s" viewBox="0 0 24 24" style="color:var(--accent)"><path d="M8 3h8v3l-1 2v10a2 2 0 0 1-2 2h-2a2 2 0 0 1-2-2V8L8 6Z"/></svg></span></div>
+              <div class="grid8">
+                <div class="slot"><svg class="ic" viewBox="0 0 24 24"><path d="M8 3h8v3l-1 2v10a2 2 0 0 1-2 2h-2a2 2 0 0 1-2-2V8L8 6Z"/><path d="M8 14h8"/></svg><span class="q ab">12</span></div>
+                <div class="slot"><svg class="ic" viewBox="0 0 24 24"><path d="M7 3h10v5l-2 2v11H9V10L7 8Z"/><path d="M7 14h10"/></svg><span class="q ab">5</span></div>
+                <div class="slot"><svg class="ic" viewBox="0 0 24 24"><path d="M10 3h4v18h-4z"/><path d="M10 8h4M10 12h4M10 16h4"/></svg><span class="q ab">3</span></div>
+                <div class="slot sel"><svg class="ic" viewBox="0 0 24 24" style="color:var(--accent)"><path d="M12 4c3 4 5 6 5 8a5 5 0 0 1-10 0c0-2 2-4 5-8Z"/></svg><span class="q ab">3</span></div>
+                <div class="slot"><svg class="ic" viewBox="0 0 24 24"><path d="M6 14c0-4 3-7 6-7s6 3 6 7"/><path d="M6 14h12v6H6z"/></svg><span class="q ab">7</span></div>
+                <div class="slot"><svg class="ic" viewBox="0 0 24 24"><circle cx="12" cy="12" r="7"/><path d="M12 9v6M9.5 10.5h5M9.5 13.5h5"/></svg><span class="q ab">1</span></div>
+                <div class="slot empty"><svg class="ic" viewBox="0 0 24 24" style="color:var(--muted)"><path d="M4 9h16v10H4z"/><path d="M9 9V6a3 3 0 0 1 6 0v3"/></svg></div>
+                <div class="slot empty"></div>
+              </div>
+            </div>
+            <div>
+              <div class="lbl" style="margin-bottom:6px">Seeds &amp; fibre <span class="ab">· 14 items</span></div>
+              <div class="grid8">
+                <div class="slot"><svg class="ic" viewBox="0 0 24 24"><path d="M12 20V9"/><path d="M12 12c-3 0-5-2-5-4 3 0 5 1 5 4Z"/><path d="M12 14c3 0 5-2 5-4-3 0-5 1-5 4Z"/></svg><span class="q ab">12</span></div>
+                <div class="slot"><svg class="ic" viewBox="0 0 24 24"><path d="M12 21c0-5 0-8 0-8"/><path d="M12 13c-3 0-5-2-5-4 3 0 5 1 5 4Z"/><path d="M12 16c3 0 5-2 5-4-3 0-5 1-5 4Z"/></svg><span class="q ab">9</span></div>
+                <div class="slot"><svg class="ic" viewBox="0 0 24 24"><path d="M8 3h8v4H8z"/><path d="M9 7v14M15 7v14"/></svg><span class="q ab">6</span></div>
+                <div class="slot"><svg class="ic" viewBox="0 0 24 24"><path d="M12 21c0-5 0-8 0-8"/><path d="M12 13c-3 0-5-2-5-4 3 0 5 1 5 4Z"/></svg><span class="q ab">21</span></div>
+                <div class="slot"><svg class="ic" viewBox="0 0 24 24"><path d="M4 18c4-6 8-6 16 0"/><path d="M4 12c4-6 8-6 16 0"/></svg><span class="q ab">4</span></div>
+                <div class="slot"><svg class="ic" viewBox="0 0 24 24"><path d="M12 3l5 6-5 12-5-12Z"/></svg><span class="q ab">8</span></div>
+                <div class="slot"><svg class="ic" viewBox="0 0 24 24"><path d="M7 13c0-3 2-5 5-5s5 2 5 5"/><path d="M7 13h10v6H7z"/></svg><span class="q ab">2</span></div>
+                <div class="slot"><svg class="ic" viewBox="0 0 24 24"><circle cx="9" cy="14" r="5"/><path d="M13 10l6-6"/></svg><span class="q ab">2</span></div>
+              </div>
+            </div>
+            <div>
+              <div class="lbl" style="margin-bottom:6px">Ore &amp; fibre <span class="ab">· 8 items</span></div>
+              <div class="grid8">
+                <div class="slot"><svg class="ic" viewBox="0 0 24 24"><path d="M5 17l4-9 3 6 3-4 4 7Z"/></svg><span class="q ab">14</span></div>
+                <div class="slot"><svg class="ic" viewBox="0 0 24 24"><path d="M12 3v18M8 7h8M8 11h8"/></svg><span class="q ab">31</span></div>
+                <div class="slot"><svg class="ic" viewBox="0 0 24 24"><path d="M6 8h12l-2 12H8Z"/><path d="M9 8V5h6v3"/></svg><span class="q ab">5</span></div>
+                <div class="slot"><svg class="ic" viewBox="0 0 24 24"><path d="M12 4c3 4 5 6 5 8a5 5 0 0 1-10 0c0-2 2-4 5-8Z"/></svg><span class="q zero ab">0</span></div>
+                <div class="slot"><svg class="ic" viewBox="0 0 24 24"><path d="M4 18c4-6 8-6 16 0"/></svg><span class="q ab">17</span></div>
+                <div class="slot empty"></div><div class="slot empty"></div><div class="slot empty"></div>
+              </div>
+            </div>
+            <div style="margin-top:auto">
+              <div class="scrollrail"><i></i></div>
+              <div class="lbl ab" style="margin-top:6px;display:flex;justify-content:space-between"><span>row 2 of 3</span><span>insertion order kept — muscle memory survives sorting</span></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- ledger -->
+        <div class="panel" style="width:330px;background:var(--raised)">
+          <div class="ptitle" style="background:var(--surface)"><h3><svg class="ic s" viewBox="0 0 24 24"><path d="M5 4h14v16H5z"/><path d="M9 4v16"/><path d="M12 9h4M12 13h4"/></svg>Ledger</h3><span class="lbl ab">2 of 14</span></div>
+          <div class="pbody" style="display:flex;flex-direction:column;gap:var(--sp-3)">
+            <div>
+              <div style="font:600 var(--fs-m)/1.2 var(--font-display);letter-spacing:-.01em">Elderflower cordial</div>
+              <div class="lbl" style="margin-top:2px">Brew · 40 min · 2nd pressing grade</div>
+            </div>
+            <div class="rule" style="margin:0"></div>
+            <div>
+              <div class="lbl" style="margin-bottom:4px">Shelf after crafting</div>
+              <div class="ledger-row"><svg class="ic s" viewBox="0 0 24 24"><path d="M12 4c3 4 5 6 5 8a5 5 0 0 1-10 0c0-2 2-4 5-8Z"/></svg><span class="lname">Elderflower, 3rd picking</span><span class="lmath ab"><span class="before">3</span>→<span class="after">0</span></span></div>
+              <div class="ledger-row short"><svg class="ic s" viewBox="0 0 24 24" style="color:var(--warn)"><path d="M12 20V9"/><path d="M12 12c-3 0-5-2-5-4 3 0 5 1 5 4Z"/><path d="M12 14c3 0 5-2 5-4-3 0-5 1-5 4Z"/></svg><span class="lname">Barley</span><span class="lmath ab"><span class="before">2</span>→<span class="after">0</span></span></div>
+              <div class="ledger-row"><svg class="ic s" viewBox="0 0 24 24"><path d="M12 4c3 4 5 6 5 8a5 5 0 0 1-10 0c0-2 2-4 5-8Z"/></svg><span class="lname">Wild honey</span><span class="lmath ab"><span class="before">1</span>→<span class="after">0</span></span></div>
+            </div>
+            <div class="rule" style="margin:0"></div>
+            <div class="outblock">
+              <div class="thumb" style="width:48px;height:48px;border-radius:var(--radius-s);border:1px solid var(--line);display:flex;align-items:center;justify-content:center;flex:none;background:var(--surface)"><svg class="ic" viewBox="0 0 24 24"><path d="M10 3h4v4l-1 2v11a1 1 0 0 1-1 1h-1a1 1 0 0 1-1-1V9l-1-2Z"/></svg></div>
+              <div><div style="font-weight:600">Cordial, 1 bottle</div><div class="lbl ab">sells 1,284 gp · 96 gp at Halloway</div></div>
+              <div class="ocount">1</div>
+            </div>
+            <div style="display:flex;gap:var(--sp-2)">
+              <button class="btn primary" disabled>Craft</button>
+              <button class="btn ghost">Craft all</button>
+            </div>
+            <div class="chip warn" style="align-self:flex-start">
+              <svg class="ic s" viewBox="0 0 24 24"><path d="M12 7v6"/><circle cx="12" cy="16.5" r=".9" fill="currentColor"/><circle cx="12" cy="12" r="9"/></svg>
+              Needs 5 more barley — sow the north plot, ready in 4 days
+            </div>
+            <div class="statusbar" style="margin-top:auto;border-top:1px solid var(--line);padding-top:var(--sp-3)">
+              <svg class="ic s" viewBox="0 0 24 24"><path d="M12 3v18"/><path d="M8 7h8"/></svg>Autosaved 06:12
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="note">Spec §2.1 + §3. Selection is a 3 px rule on the top edge (never a left-border accent card). The output count in Fraunces is the only dominant element.</div>
+</section>
+
+<!-- ============================ 3. SHELF ============================ -->
+<section class="board" id="shelf" data-board="shelf" style="--w:1180px">
+  <header><b>Shelf — grid, inspector, hover / focus / selected</b><code>1180×700</code></header>
+  <div class="artboard" style="width:1180px;height:700px">
+    <div class="screen" style="padding:var(--sp-4);gap:var(--sp-3)">
+      <div class="topbar">
+        <div class="tabs"><span class="tab on">All</span><span class="tab">Preserves</span><span class="tab">Seeds</span><span class="tab">Ore</span><span class="tab">Tool</span></div>
+        <div class="divider"></div>
+        <div style="display:flex;align-items:center;gap:var(--sp-2);color:var(--muted)">
+          <svg class="ic s" viewBox="0 0 24 24"><circle cx="11" cy="11" r="6"/><path d="M15.5 15.5L21 21"/></svg>
+          <span style="font-size:var(--fs-xs)">Filter the pantry</span>
+        </div>
+        <div style="margin-left:auto;display:flex;gap:var(--sp-3);align-items:center">
+          <span class="lbl ab">41 / 72 slots</span>
+          <button class="btn" style="height:32px;padding:0 var(--sp-3)">Sort by age</button>
+        </div>
+      </div>
+      <div class="cols" style="gap:var(--sp-4)">
+        <div class="panel" style="flex:1">
+          <div class="ptitle"><h3>Pantry</h3><span class="lbl ab">tab moves the selection, Enter picks the slot up</span></div>
+          <div class="pbody" style="display:flex;flex-direction:column;gap:var(--sp-4)">
+            <div>
+              <div class="lbl" style="margin-bottom:6px">Preserves <span class="ab">· 9</span></div>
+              <div class="grid12">
+                <div class="slot" style="width:56px;height:56px"><svg class="ic l" viewBox="0 0 24 24"><path d="M8 3h8v3l-1 2v10a2 2 0 0 1-2 2h-2a2 2 0 0 1-2-2V8L8 6Z"/><path d="M8 14h8"/></svg><span class="q ab">12</span></div>
+                <div class="slot" style="width:56px;height:56px"><svg class="ic l" viewBox="0 0 24 24"><path d="M7 3h10v5l-2 2v11H9V10L7 8Z"/><path d="M7 14h10"/></svg><span class="q ab">5</span></div>
+                <div class="slot" style="width:56px;height:56px"><svg class="ic l" viewBox="0 0 24 24"><path d="M10 3h4v18h-4z"/><path d="M10 8h4M10 12h4M10 16h4"/></svg><span class="q ab">3</span></div>
+                <div class="slot" style="width:56px;height:56px;outline:2px solid var(--accent);outline-offset:2px"><svg class="ic l" viewBox="0 0 24 24"><path d="M12 4c3 4 5 6 5 8a5 5 0 0 1-10 0c0-2 2-4 5-8Z"/></svg><span class="q ab">3</span></div>
+                <div class="slot" style="width:56px;height:56px"><svg class="ic l" viewBox="0 0 24 24"><path d="M6 14c0-4 3-7 6-7s6 3 6 7"/><path d="M6 14h12v6H6z"/></svg><span class="q ab">7</span></div>
+                <div class="slot" style="width:56px;height:56px"><svg class="ic l" viewBox="0 0 24 24"><circle cx="12" cy="12" r="7"/><path d="M12 9v6M9.5 10.5h5M9.5 13.5h5"/></svg><span class="q ab">1</span></div>
+                <div class="slot" style="width:56px;height:56px"><svg class="ic l" viewBox="0 0 24 24"><path d="M5 11h14l-1.5 8h-11Z"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/></svg><span class="q ab">2</span></div>
+                <div class="slot" style="width:56px;height:56px"><svg class="ic l" viewBox="0 0 24 24"><path d="M9 3h6v4l-1 1v12a1 1 0 0 1-1 1h-2a1 1 0 0 1-1-1V8L9 7Z"/></svg><span class="q ab">1</span></div>
+                <div class="slot" style="width:56px;height:56px"><svg class="ic l" viewBox="0 0 24 24"><path d="M12 21c0-5 0-8 0-8"/><path d="M12 13c-3 0-5-2-5-4 3 0 5 1 5 4Z"/></svg><span class="q ab">18</span></div>
+                <div class="slot" style="width:56px;height:56px"><svg class="ic l" viewBox="0 0 24 24"><path d="M12 3l5 6-5 12-5-12Z"/></svg><span class="q ab">6</span></div>
+                <div class="slot" style="width:56px;height:56px"><svg class="ic l" viewBox="0 0 24 24"><path d="M4 18c4-6 8-6 16 0"/></svg><span class="q ab">9</span></div>
+                <div class="slot empty" style="width:56px;height:56px"></div>
+              </div>
+            </div>
+            <div>
+              <div class="lbl" style="margin-bottom:6px">Seeds &amp; fibre <span class="ab">· 14</span></div>
+              <div class="grid12">
+                <div class="slot" style="width:56px;height:56px"><svg class="ic l" viewBox="0 0 24 24"><path d="M12 20V9"/><path d="M12 12c-3 0-5-2-5-4 3 0 5 1 5 4Z"/><path d="M12 14c3 0 5-2 5-4-3 0-5 1-5 4Z"/></svg><span class="q ab">12</span></div>
+                <div class="slot" style="width:56px;height:56px"><svg class="ic l" viewBox="0 0 24 24"><path d="M12 21c0-5 0-8 0-8"/><path d="M12 13c-3 0-5-2-5-4 3 0 5 1 5 4Z"/><path d="M12 16c3 0 5-2 5-4-3 0-5 1-5 4Z"/></svg><span class="q ab">9</span></div>
+                <div class="slot" style="width:56px;height:56px"><svg class="ic l" viewBox="0 0 24 24"><path d="M8 3h8v4H8z"/><path d="M9 7v14M15 7v14"/></svg><span class="q ab">6</span></div>
+                <div class="slot" style="width:56px;height:56px"><svg class="ic l" viewBox="0 0 24 24"><path d="M12 20V9"/><path d="M12 12c-3 0-5-2-5-4 3 0 5 1 5 4Z"/></svg><span class="q ab">21</span></div>
+                <div class="slot" style="width:56px;height:56px"><svg class="ic l" viewBox="0 0 24 24"><path d="M4 18c4-6 8-6 16 0"/><path d="M4 12c4-6 8-6 16 0"/></svg><span class="q ab">4</span></div>
+                <div class="slot" style="width:56px;height:56px"><svg class="ic l" viewBox="0 0 24 24"><path d="M6 8h12l-2 12H8Z"/><path d="M9 8V5h6v3"/></svg><span class="q ab">5</span></div>
+                <div class="slot" style="width:56px;height:56px"><svg class="ic l" viewBox="0 0 24 24"><path d="M5 17l4-9 3 6 3-4 4 7Z"/></svg><span class="q ab">14</span></div>
+                <div class="slot" style="width:56px;height:56px"><svg class="ic l" viewBox="0 0 24 24"><path d="M12 3v18M8 7h8M8 11h8"/></svg><span class="q ab">31</span></div>
+                <div class="slot" style="width:56px;height:56px"><svg class="ic l" viewBox="0 0 24 24"><path d="M7 13c0-3 2-5 5-5s5 2 5 5"/><path d="M7 13h10v6H7z"/></svg><span class="q ab">2</span></div>
+                <div class="slot" style="width:56px;height:56px"><svg class="ic l" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8"/><path d="M9 9l6 6M15 9l-6 6"/></svg><span class="q zero ab">0</span></div>
+                <div class="slot" style="width:56px;height:56px"><svg class="ic l" viewBox="0 0 24 24"><path d="M12 3v18"/><path d="M8 7h8"/></svg><span class="q ab">17</span></div>
+                <div class="slot empty" style="width:56px;height:56px"></div>
+              </div>
+            </div>
+            <div style="margin-top:auto;display:flex;align-items:center;gap:var(--sp-3)">
+              <div class="scrollrail" style="flex:1"><i style="width:64%"></i></div>
+              <span class="lbl ab">41 of 72 slots · rows 1–2 of 3</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="panel" style="width:300px">
+          <div class="ptitle"><h3>Inspector</h3><span class="lbl ab">hover</span></div>
+          <div class="pbody">
+            <div class="insp">
+              <div style="width:56px;height:56px;border-radius:var(--radius-s);background:var(--raised);border:1px solid var(--line);display:flex;align-items:center;justify-content:center"><svg class="ic l" viewBox="0 0 24 24"><path d="M12 4c3 4 5 6 5 8a5 5 0 0 1-10 0c0-2 2-4 5-8Z"/></svg></div>
+              <div>
+                <div class="big">Wild honey</div>
+                <div class="lbl" style="margin-top:2px">Picked at Hollow Fen, Day 9</div>
+              </div>
+              <div style="display:flex;gap:6px;flex-wrap:wrap">
+                <span class="chip accent">3 in shelf</span>
+                <span class="chip">Ordinary</span>
+              </div>
+              <div style="margin-top:var(--sp-1)">
+                <div class="kv"><span style="color:var(--muted)">Sells for</span><b class="ab">62 gp</b></div>
+                <div class="kv"><span style="color:var(--muted)">Used in</span><b class="ab">3 recipes</b></div>
+                <div class="kv"><span style="color:var(--muted)">Keeps</span><b class="ab">2 seasons</b></div>
+              </div>
+              <p style="margin:0;font-size:var(--fs-xs);color:var(--muted)">Sour by Day 19. Turns 2 honey into 1 honey oat cake at the bench.</p>
+              <div style="display:flex;flex-direction:column;gap:var(--sp-2);margin-top:var(--sp-2)">
+                <button class="btn primary">Take to bench</button>
+                <div style="display:flex;gap:var(--sp-2)">
+                  <button class="btn" style="flex:1">Sell 186 gp</button>
+                  <button class="btn ghost" style="flex:1">Gift to</button>
+                </div>
+                <button class="btn ghost" style="border-style:dashed">Discard 3</button>
+              </div>
+              <div class="chip warn"><svg class="ic s" viewBox="0 0 24 24"><path d="M12 7v6"/><circle cx="12" cy="16.5" r=".9" fill="currentColor"/></svg>Sours in 7 days</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="note">Spec §2.2. The focused slot uses a 2 px accent outline at 2 px offset — identical shape to selection, so focus is never colour-alone.</div>
+</section>
+
+<!-- ============================ 4. STATES ============================ -->
+<section class="board" id="states" data-board="states" style="--w:1180px">
+  <header><b>States — eight of them, none polished-only</b><code>1180×600</code></header>
+  <div class="artboard" style="width:1180px;height:600px">
+    <div style="height:100%;padding:var(--sp-4);background:var(--bg);display:flex;flex-direction:column;gap:var(--sp-3)">
+      <div style="display:flex;align-items:baseline;gap:var(--sp-3)">
+        <h3 class="ph">Every state the bench can be in</h3>
+        <span class="lbl">Spec §3 — each card is the live component, not a description of it</span>
+      </div>
+      <div class="grid44" style="margin-top:auto">
+        <!-- hover -->
+        <div style="background:var(--surface);border:1px solid var(--line);border-radius:var(--radius-m);padding:var(--sp-3);display:flex;flex-direction:column;gap:var(--sp-2)">
+          <div class="lbl">hover · 120 ms</div>
+          <div class="rcard hov" style="background:var(--raised);border-color:var(--accent)">
+            <div class="thumb" style="width:40px;height:40px"><svg class="ic" viewBox="0 0 24 24"><path d="M8 3h8v3l-1 2v10a2 2 0 0 1-2 2h-2a2 2 0 0 1-2-2V8L8 6Z"/></svg></div>
+            <div class="rmain"><div class="rname" style="font-size:var(--fs-xs)">Barley preserve</div><div class="lbl ab">fill step, no scale</div></div>
+          </div>
+          <span class="lbl">Fill moves one step up. No lift, no glow, no border glow.</span>
+        </div>
+        <!-- focus -->
+        <div style="background:var(--surface);border:1px solid var(--line);border-radius:var(--radius-m);padding:var(--sp-3);display:flex;flex-direction:column;gap:var(--sp-2)">
+          <div class="lbl">keyboard focus</div>
+          <div class="rcard foc" style="background:var(--raised);border-color:var(--accent);outline:2px solid var(--accent);outline-offset:2px">
+            <div class="thumb" style="width:40px;height:40px"><svg class="ic" viewBox="0 0 24 24"><path d="M8 3h8v3l-1 2v10a2 2 0 0 1-2 2h-2a2 2 0 0 1-2-2V8L8 6Z"/></svg></div>
+            <div class="rmain"><div class="rname" style="font-size:var(--fs-xs)">Barley preserve</div><div class="lbl ab">outline 2 px, offset 2 px</div></div>
+          </div>
+          <span class="lbl">Same shape as selection, so it survives a greyscale screenshot.</span>
+        </div>
+        <!-- pressed -->
+        <div style="background:var(--surface);border:1px solid var(--line);border-radius:var(--radius-m);padding:var(--sp-3);display:flex;flex-direction:column;gap:var(--sp-2)">
+          <div class="lbl">pressed · 90 ms</div>
+          <button class="btn primary" style="align-self:flex-start;background:var(--accent);border-color:var(--accent);color:var(--on-accent);transform:translateY(1px)">Craft</button>
+          <span class="lbl">1 px sink, no darkening. Same easing as hover.</span>
+        </div>
+        <!-- disabled -->
+        <div style="background:var(--surface);border:1px solid var(--line);border-radius:var(--radius-m);padding:var(--sp-3);display:flex;flex-direction:column;gap:var(--sp-2)">
+          <div class="lbl">disabled + reason</div>
+          <button class="btn primary" disabled>Craft</button>
+          <span class="chip warn"><svg class="ic s" viewBox="0 0 24 24"><path d="M12 7v6"/><circle cx="12" cy="16.5" r=".9" fill="currentColor"/></svg>Needs 5 more barley</span>
+          <span class="lbl">A disabled control without a written reason is a bug.</span>
+        </div>
+        <!-- loading -->
+        <div style="background:var(--surface);border:1px solid var(--line);border-radius:var(--radius-m);padding:var(--sp-3);display:flex;flex-direction:column;gap:var(--sp-2)">
+          <div class="lbl">crafting · 1,200 ms</div>
+          <div style="display:flex;align-items:center;gap:var(--sp-2);font-size:var(--fs-xs)">
+            <span class="slot" style="width:36px;height:36px"><svg class="ic" viewBox="0 0 24 24"><path d="M8 3h8v3l-1 2v10a2 2 0 0 1-2 2h-2a2 2 0 0 1-2-2V8L8 6Z"/></svg></span>
+            <span style="flex:1"><span class="lbl">Steeping the cordial</span><span class="prog" style="display:block;margin-top:5px"><i style="width:63%"></i></span></span>
+            <span class="ab lbl">63%</span>
+          </div>
+          <span class="lbl">Slots decrement at 240 ms as each ingredient is consumed.</span>
+        </div>
+        <!-- empty -->
+        <div style="background:var(--surface);border:1px solid var(--line);border-radius:var(--radius-m);padding:var(--sp-3);display:flex;flex-direction:column;gap:var(--sp-2)">
+          <div class="lbl">empty · first run</div>
+          <div class="grid8" style="grid-template-columns:repeat(6,36px);gap:4px">
+            <div class="slot empty" style="width:36px;height:36px"></div><div class="slot empty" style="width:36px;height:36px"></div><div class="slot empty" style="width:36px;height:36px"></div>
+            <div class="slot empty" style="width:36px;height:36px"></div><div class="slot empty" style="width:36px;height:36px"></div><div class="slot empty" style="width:36px;height:36px"></div>
+          </div>
+          <span class="lbl ab">Nothing in the pantry yet — the 12 starter seeds arrive on Day 1.</span>
+        </div>
+        <!-- error -->
+        <div style="background:var(--surface);border:1px solid var(--line);border-radius:var(--radius-m);padding:var(--sp-3);display:flex;flex-direction:column;gap:var(--sp-2)">
+          <div class="lbl">no recipe</div>
+          <div style="font-size:var(--fs-xs);color:var(--danger);display:flex;gap:6px;align-items:flex-start"><svg class="ic s" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7v6"/><circle cx="12" cy="16.5" r=".9" fill="currentColor"/></svg><span>No recipe uses <b>Split garlic braid</b> yet. Bram's cellar key unlocks two.</span></div>
+          <div style="display:flex;gap:var(--sp-2)"><button class="btn" style="height:32px;padding:0 10px;font-size:var(--fs-xs)">Sell 340 gp</button><button class="btn ghost" style="height:32px;padding:0 10px;font-size:var(--fs-xs)">Discard</button></div>
+          <span class="lbl">Says what happened and what to do. No exclamation marks.</span>
+        </div>
+        <!-- overflow -->
+        <div style="background:var(--surface);border:1px solid var(--line);border-radius:var(--radius-m);padding:var(--sp-3);display:flex;flex-direction:column;gap:var(--sp-2)">
+          <div class="lbl">overflow · 40-char name</div>
+          <div style="border:1px solid var(--line);border-radius:var(--radius-s);background:var(--raised);padding:8px">
+            <div style="font-size:var(--fs-xs);font-weight:600;line-height:1.35">Elderflower cordial, 2nd pressing, unbottled</div>
+            <div class="lbl ab" style="margin-top:2px">2 in shelf · sells 1,284 gp</div>
+          </div>
+          <div class="scrollrail"><i style="width:41%"></i></div>
+          <span class="lbl">Name wraps to two lines and clamps; the rail keeps the count honest.</span>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="note">Spec §3 states idle→hover→focus→selected→craftable→short→crafting→error/empty/overflow. Status never rides on hue alone: every colour is paired with an icon or a sentence.</div>
+</section>
+
+<!-- ============================ 5. MOTION ============================ -->
+<section class="board" id="motion" data-board="motion" style="--w:1180px">
+  <header><b>Motion — craft one cordial, end to end</b><code>1180×340</code></header>
+  <div class="artboard" style="width:1180px;height:340px">
+    <div style="height:100%;padding:var(--sp-4);background:var(--bg);display:flex;flex-direction:column;gap:var(--sp-3)">
+      <div style="display:flex;align-items:baseline;gap:var(--sp-3)">
+        <h3 class="ph">One craft, five frames</h3>
+        <span class="lbl">Spec §4 — every arrow carries a real duration and curve; reduced motion turns all of it into an opacity swap</span>
+      </div>
+      <div style="display:flex;align-items:stretch;gap:0;margin-top:auto;margin-bottom:auto">
+        <!-- f1 -->
+        <div style="width:196px">
+          <div style="background:var(--surface);border:1px solid var(--line);border-radius:var(--radius-m);height:132px;padding:var(--sp-2);display:flex;flex-direction:column;gap:6px">
+            <div class="lbl ab">t = 0 ms</div>
+            <div class="rcard hov" style="padding:6px"><div class="rmain"><div class="rname" style="font-size:var(--fs-xs)">Honey oat cake</div><div class="lbl">hover fill</div></div></div>
+          </div>
+          <div class="lbl" style="margin-top:6px"><b>Frame 1 — hover</b><br>fill steps to raised</div>
+        </div>
+        <div style="width:74px;display:flex;align-items:center;justify-content:center;color:var(--muted);font-size:var(--fs-2xs);text-align:center;line-height:1.35">120 ms<br>--ease-out</div>
+        <!-- f2 -->
+        <div style="width:196px">
+          <div style="background:var(--surface);border:1px solid var(--line);border-radius:var(--radius-m);height:132px;padding:var(--sp-2);display:flex;flex-direction:column;gap:6px">
+            <div class="lbl ab">t = 320 ms</div>
+            <div class="rcard sel" style="padding:6px"><div class="rmain"><div class="rname" style="font-size:var(--fs-xs)">Honey oat cake</div><div class="lbl">top rule lands</div></div></div>
+          </div>
+          <div class="lbl" style="margin-top:6px"><b>Frame 2 — selected</b><br>ledger binds to the recipe</div>
+        </div>
+        <div style="width:74px;display:flex;align-items:center;justify-content:center;color:var(--muted);font-size:var(--fs-2xs);text-align:center;line-height:1.35">200 ms<br>--ease-out</div>
+        <!-- f3 -->
+        <div style="width:196px">
+          <div style="background:var(--surface);border:1px solid var(--line);border-radius:var(--radius-m);height:132px;padding:var(--sp-2);display:flex;flex-direction:column;gap:6px">
+            <div class="lbl ab">t = 1,520 ms</div>
+            <div class="ledger-row" style="border:0;padding:2px 0"><svg class="ic s" viewBox="0 0 24 24"><path d="M12 20V9"/><path d="M12 12c-3 0-5-2-5-4 3 0 5 1 5 4Z"/></svg><span class="lname" style="font-size:var(--fs-xs)">Wild honey</span><span class="lmath ab"><span class="before">1</span>→<span class="after">0</span></span></div>
+            <div class="lbl">count strikes, then lands</div>
+          </div>
+          <div class="lbl" style="margin-top:6px"><b>Frame 3 — subtract</b><br>old figure drops 4 px</div>
+        </div>
+        <div style="width:74px;display:flex;align-items:center;justify-content:center;color:var(--muted);font-size:var(--fs-2xs);text-align:center;line-height:1.35">240 ms<br>--ease-in</div>
+        <!-- f4 -->
+        <div style="width:196px">
+          <div style="background:var(--surface);border:1px solid var(--line);border-radius:var(--radius-m);height:132px;padding:var(--sp-2);display:flex;flex-direction:column;gap:8px">
+            <div class="lbl ab">t = 1,760 ms</div>
+            <div class="prog"><i style="width:72%"></i></div>
+            <div class="lbl ab" style="text-align:right">steeping · 72%</div>
+          </div>
+          <div class="lbl" style="margin-top:6px"><b>Frame 4 — working</b><br>progress rail, no spinner</div>
+        </div>
+        <div style="width:74px;display:flex;align-items:center;justify-content:center;color:var(--muted);font-size:var(--fs-2xs);text-align:center;line-height:1.35">1,200 ms<br>linear</div>
+        <!-- f5 -->
+        <div style="width:196px">
+          <div style="background:var(--surface);border:1px solid var(--line);border-radius:var(--radius-m);height:132px;padding:var(--sp-2);display:flex;flex-direction:column;gap:8px">
+            <div class="lbl ab">t = 2,960 ms</div>
+            <div class="outblock ready" style="padding:8px"><span class="num" style="font-size:var(--fs-l)">1</span><span style="font-size:var(--fs-xs);font-weight:600">cake on the shelf</span></div>
+          </div>
+          <div class="lbl" style="margin-top:6px"><b>Frame 5 — done</b><br>slot scales 0.94 → 1, one spark</div>
+        </div>
+      </div>
+      <div class="statusbar" style="border-top:1px solid var(--line);padding-top:var(--sp-2)">
+        <svg class="ic s" viewBox="0 0 24 24"><path d="M12 3v18"/><path d="M8 7h8"/></svg>
+        Every travel answers “where did it come from / where did it go”. Nothing animates for decoration — no confetti, no parallax, no decorative shimmer.
+      </div>
+    </div>
+  </div>
+  <div class="note">Durations follow the scale ladder: micro 120 / small 200 / large 300 / xl 450 ms, one easing family. The only added value here is the fixed progress rail.</div>
+</section>
+
+<!-- ============================ 6. TYPE ============================ -->
+<section class="board" id="type" data-board="type" style="--w:980px">
+  <header><b>Type — six candidates on the real strings</b><code>980×580</code></header>
+  <div class="artboard" style="width:980px;height:580px">
+    <div style="height:100%;padding:var(--sp-5);background:var(--bg);display:flex;flex-direction:column;gap:var(--sp-3)">
+      <div style="display:flex;align-items:baseline;gap:var(--sp-3)">
+        <h3 class="ph" style="font-size:var(--fs-l)">Which face carries the pantry?</h3>
+        <span class="lbl">same three strings in every row · Turkish run is a glyph-coverage check, not UI copy</span>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:var(--sp-3);margin-top:var(--sp-2)">
+        <!-- Instrument Sans -->
+        <div style="background:var(--surface);border:1px solid var(--accent);border-radius:var(--radius-m);padding:var(--sp-3)">
+          <div style="display:flex;align-items:center;gap:var(--sp-2)"><b style="font:600 var(--fs-xs)/1 var(--font-civic)">Instrument Sans</b><span class="chip accent">recommended — UI</span></div>
+          <div style="font:400 17px/1.35 'Instrument Sans'">Elderflower cordial, 2nd pressing</div>
+          <div style="font:400 26px/1.2 'Instrument Sans';letter-spacing:-.015em">Wheat flour 12 → 7</div>
+          <div style="font:400 12.5px/1.4 'Instrument Sans';color:var(--muted)">0123456789 · 1,284 gp · 41/72 · <span style="font-family:var(--font-display)">ĞÜŞİÖÇ ğüşıöç</span></div>
+          <div class="lbl" style="margin-top:6px">Tabular figures, tight apertures, reads well at 12 px.</div>
+        </div>
+        <!-- Fraunces -->
+        <div style="background:var(--surface);border:1px solid var(--accent);border-radius:var(--radius-m);padding:var(--sp-3)">
+          <div style="display:flex;align-items:center;gap:var(--sp-2)"><b style="font:600 var(--fs-xs)/1 var(--font-civic)">Fraunces</b><span class="chip accent">recommended — display</span></div>
+          <div style="font:400 17px/1.35 'Fraunces'">Elderflower cordial, 2nd pressing</div>
+          <div style="font:600 26px/1.2 'Fraunces';letter-spacing:-.015em">Wheat flour 12 → 7</div>
+          <div style="font:400 12.5px/1.4 'Fraunces';color:var(--muted)">0123456789 · 1,284 gp · 41/72 · ĞÜŞİÖÇ ğüşıöç</div>
+          <div class="lbl" style="margin-top:6px">Old-style warmth for the counts. Quantity only, never for body text.</div>
+        </div>
+        <!-- Bricolage -->
+        <div style="background:var(--surface);border:1px solid var(--line);border-radius:var(--radius-m);padding:var(--sp-3)">
+          <div style="display:flex;align-items:center;gap:var(--sp-2)"><b style="font:600 var(--fs-xs)/1 var(--font-civic)">Bricolage Grotesque</b><span class="lbl">rejected</span></div>
+          <div style="font:400 17px/1.35 'Bricolage Grotesque'">Elderflower cordial, 2nd pressing</div>
+          <div style="font:600 26px/1.2 'Bricolage Grotesque'">Wheat flour 12 → 7</div>
+          <div style="font:400 12.5px/1.4 'Bricolage Grotesque';color:var(--muted)">0123456789 · 1,284 gp · 41/72 · ĞÜŞİÖÇ ğüşıöç</div>
+          <div class="lbl" style="margin-top:6px">Too editorial/quirky; fights the quiet ledger.</div>
+        </div>
+        <!-- Newsreader -->
+        <div style="background:var(--surface);border:1px solid var(--line);border-radius:var(--radius-m);padding:var(--sp-3)">
+          <div style="display:flex;align-items:center;gap:var(--sp-2)"><b style="font:600 var(--fs-xs)/1 var(--font-civic)">Newsreader</b><span class="lbl">rejected</span></div>
+          <div style="font:400 17px/1.35 'Newsreader'">Elderflower cordial, 2nd pressing</div>
+          <div style="font:600 26px/1.2 'Newsreader'">Wheat flour 12 → 7</div>
+          <div style="font:400 12.5px/1.4 'Newsreader';color:var(--muted)">0123456789 · 1,284 gp · 41/72 · ĞÜŞİÖÇ ğüşıöç</div>
+          <div class="lbl" style="margin-top:6px">A book serif — drifts into the cream-and-serif cliché.</div>
+        </div>
+        <!-- Lexend -->
+        <div style="background:var(--surface);border:1px solid var(--line);border-radius:var(--radius-m);padding:var(--sp-3)">
+          <div style="display:flex;align-items:center;gap:var(--sp-2)"><b style="font:600 var(--fs-xs)/1 var(--font-civic)">Lexend</b><span class="lbl">rejected</span></div>
+          <div style="font:400 17px/1.35 Lexend">Elderflower cordial, 2nd pressing</div>
+          <div style="font:600 26px/1.2 Lexend">Wheat flour 12 → 7</div>
+          <div style="font:400 12.5px/1.4 Lexend;color:var(--muted)">0123456789 · 1,284 gp · 41/72 · ĞÜŞİÖÇ ğüşıöç</div>
+          <div class="lbl" style="margin-top:6px">Wide, calm, a little clinical for a hearth.</div>
+        </div>
+        <!-- Public Sans -->
+        <div style="background:var(--surface);border:1px solid var(--line);border-radius:var(--radius-m);padding:var(--sp-3)">
+          <div style="display:flex;align-items:center;gap:var(--sp-2)"><b style="font:600 var(--fs-xs)/1 var(--font-civic)">Public Sans</b><span class="lbl">kept as fallback</span></div>
+          <div style="font:400 17px/1.35 'Public Sans'">Elderflower cordial, 2nd pressing</div>
+          <div style="font:600 26px/1.2 'Public Sans'">Wheat flour 12 → 7</div>
+          <div style="font:400 12.5px/1.4 'Public Sans';color:var(--muted)">0123456789 · 1,284 gp · 41/72 · ĞÜŞİÖÇ ğüşıöç</div>
+          <div class="lbl" style="margin-top:6px">Metrically close; used only if Instrument Sans fails to load.</div>
+        </div>
+      </div>
+      <div class="statusbar" style="margin-top:auto;border-top:1px solid var(--line);padding-top:var(--sp-3)">
+        Two faces total. Fraunces carries the shelf counts and the recipe names; Instrument Sans carries everything else. Both bundled as local woff2 — no silent web fallback.
+      </div>
+    </div>
+  </div>
+  <div class="note">Type board. Every face checked against `ĞÜŞİÖÇ ğüşıöç İstanbul ılık` and a 40-character unbroken name. Inter / Roboto / Arial / system-ui were never candidates.</div>
+</section>
+
+<!-- ============================ 7. TOKENS ============================ -->
+<section class="board" id="tokens" data-board="tokens" style="--w:980px">
+  <header><b>Tokens — generated, with the numbers handoff needs</b><code>980×640</code></header>
+  <div class="artboard" style="width:980px;height:640px">
+    <div style="height:100%;padding:var(--sp-5);background:var(--bg);display:flex;flex-direction:column;gap:var(--sp-4)">
+      <h3 class="ph" style="font-size:var(--fs-l)">Design tokens</h3>
+      <!-- palette -->
+      <div>
+        <div class="lbl" style="margin-bottom:6px">Colour — palette.py --hue 128 --mood calm --scheme analogous · contrast measured, not estimated</div>
+        <div style="display:grid;grid-template-columns:repeat(7,1fr);gap:var(--sp-2)">
+          <div><div style="height:46px;border-radius:var(--radius-s);background:var(--bg);border:1px solid var(--line)"></div><div style="font-size:var(--fs-2xs);margin-top:4px"><b>bg</b><br><span class="ab" style="color:var(--muted)">#f2f4f0</span></div></div>
+          <div><div style="height:46px;border-radius:var(--radius-s);background:var(--surface);border:1px solid var(--line)"></div><div style="font-size:var(--fs-2xs);margin-top:4px"><b>surface</b><br><span class="ab" style="color:var(--muted)">#f8faf6</span></div></div>
+          <div><div style="height:46px;border-radius:var(--radius-s);background:var(--raised);border:1px solid var(--line)"></div><div style="font-size:var(--fs-2xs);margin-top:4px"><b>raised</b><br><span class="ab" style="color:var(--muted)">#fdfefb</span></div></div>
+          <div><div style="height:46px;border-radius:var(--radius-s);background:var(--line)"></div><div style="font-size:var(--fs-2xs);margin-top:4px"><b>line</b><br><span class="ab" style="color:var(--muted)">#d6d8d3</span></div></div>
+          <div><div style="height:46px;border-radius:var(--radius-s);background:var(--accent)"></div><div style="font-size:var(--fs-2xs);margin-top:4px"><b>accent</b><br><span class="ab" style="color:var(--muted)">#4c691c</span></div></div>
+          <div><div style="height:46px;border-radius:var(--radius-s);background:var(--accent-soft)"></div><div style="font-size:var(--fs-2xs);margin-top:4px"><b>accent-soft</b><br><span class="ab" style="color:var(--muted)">#e0edd3</span></div></div>
+          <div><div style="height:46px;border-radius:var(--radius-s);background:var(--warn)"></div><div style="font-size:var(--fs-2xs);margin-top:4px"><b>warn</b><br><span class="ab" style="color:var(--muted)">#7d540a</span></div></div>
+          <div><div style="height:46px;border-radius:var(--radius-s);background:var(--danger)"></div><div style="font-size:var(--fs-2xs);margin-top:4px"><b>danger</b><br><span class="ab" style="color:var(--muted)">#953e37</span></div></div>
+          <div><div style="height:46px;border-radius:var(--radius-s);background:var(--ok)"></div><div style="font-size:var(--fs-2xs);margin-top:4px"><b>ok</b><br><span class="ab" style="color:var(--muted)">#326c41</span></div></div>
+          <div><div style="height:46px;border-radius:var(--radius-s);background:var(--info)"></div><div style="font-size:var(--fs-2xs);margin-top:4px"><b>info</b><br><span class="ab" style="color:var(--muted)">#216587</span></div></div>
+          <div><div style="height:46px;border-radius:var(--radius-s);background:var(--text)"></div><div style="font-size:var(--fs-2xs);margin-top:4px"><b>text</b><br><span class="ab" style="color:var(--muted)">#1e201c</span></div></div>
+          <div><div style="height:46px;border-radius:var(--radius-s);background:var(--muted)"></div><div style="font-size:var(--fs-2xs);margin-top:4px"><b>muted</b><br><span class="ab" style="color:var(--muted)">#676a64</span></div></div>
+          <div style="background:var(--surface);border:1px solid var(--line);border-radius:var(--radius-s);padding:8px"><div style="font:400 13px/1.4 var(--font-ui)">Aa</div><div style="font-size:var(--fs-2xs);margin-top:2px">text on bg <b class="ab">14.8:1</b></div></div>
+          <div style="background:var(--surface);border:1px solid var(--line);border-radius:var(--radius-s);padding:8px"><div style="font:400 13px/1.4 var(--font-ui);color:var(--muted)">Aa</div><div style="font-size:var(--fs-2xs);margin-top:2px">muted on surface <b class="ab">5.2:1</b></div></div>
+        </div>
+      </div>
+      <div style="display:flex;gap:var(--sp-6)">
+        <div style="flex:1">
+          <div class="lbl" style="margin-bottom:6px">Type scale · ratio 1.25, unit 4</div>
+          <div style="display:flex;align-items:baseline;gap:var(--sp-3);padding:3px 0;border-bottom:1px dashed var(--line)"><span class="ab" style="color:var(--muted);width:52px">34 / 1.15</span><span class="num" style="font-size:34px;line-height:1.15;font-weight:600">1,284 gp</span><span class="lbl">display — output count, recipe name</span></div>
+          <div style="display:flex;align-items:baseline;gap:var(--sp-3);padding:3px 0;border-bottom:1px dashed var(--line)"><span class="ab" style="color:var(--muted);width:52px">27.5 / 1.15</span><span class="num" style="font-size:27.5px;line-height:1.15;font-weight:600">Barley preserve</span></div>
+          <div style="display:flex;align-items:baseline;gap:var(--sp-3);padding:3px 0;border-bottom:1px dashed var(--line)"><span class="ab" style="color:var(--muted);width:52px">17.5 / 1.3</span><span style="font-size:17.5px;font-weight:600">The bench</span></div>
+          <div style="display:flex;align-items:baseline;gap:var(--sp-3);padding:3px 0;border-bottom:1px dashed var(--line)"><span class="ab" style="color:var(--muted);width:52px">14 / 1.5</span><span style="font-size:14px">Wild honey · 3 in shelf · sells 62 gp</span></div>
+          <div style="display:flex;align-items:baseline;gap:var(--sp-3);padding:3px 0"><span class="ab" style="color:var(--muted);width:52px">12.5 / 1.5</span><span style="font-size:12.5px;color:var(--muted)">Picked at Hollow Fen, Day 9</span></div>
+        </div>
+        <div style="width:300px;display:flex;flex-direction:column;gap:var(--sp-3)">
+          <div>
+            <div class="lbl" style="margin-bottom:6px">Radius — three, tied to element size</div>
+            <div style="display:flex;gap:var(--sp-3);align-items:flex-end">
+              <div style="text-align:center"><div style="width:48px;height:32px;border:1px solid var(--line);border-radius:var(--radius-s);background:var(--raised)"></div><div class="lbl ab" style="margin-top:3px">4 · slot</div></div>
+              <div style="text-align:center"><div style="width:48px;height:32px;border:1px solid var(--line);border-radius:var(--radius-m);background:var(--raised)"></div><div class="lbl ab" style="margin-top:3px">8 · card</div></div>
+              <div style="text-align:center"><div style="width:48px;height:32px;border:1px solid var(--line);border-radius:var(--radius-l);background:var(--raised)"></div><div class="lbl ab" style="margin-top:3px">14 · panel</div></div>
+            </div>
+          </div>
+          <div>
+            <div class="lbl" style="margin-bottom:6px">Space ladder · 4 / 8 / 12 / 16 / 24 / 32 / 48</div>
+            <div style="display:flex;align-items:flex-end;gap:4px;height:34px">
+              <i style="width:4px;height:4px;background:var(--accent)"></i><i style="width:8px;height:8px;background:var(--accent)"></i><i style="width:12px;height:12px;background:var(--accent)"></i><i style="width:16px;height:16px;background:var(--accent)"></i><i style="width:24px;height:24px;background:var(--accent)"></i><i style="width:32px;height:32px;background:var(--accent)"></i>
+            </div>
+          </div>
+          <div>
+            <div class="lbl" style="margin-bottom:6px">Motion</div>
+            <div class="kv"><span style="color:var(--muted)">micro · hover, press</span><b class="ab">120 ms</b></div>
+            <div class="kv"><span style="color:var(--muted)">small · ledger bind</span><b class="ab">200 ms</b></div>
+            <div class="kv"><span style="color:var(--muted)">large · panel enter</span><b class="ab">300 ms</b></div>
+            <div class="kv"><span style="color:var(--muted)">ease-out / ease-in</span><b class="ab">.2,.8,.2,1</b></div>
+          </div>
+          <div>
+            <div class="lbl" style="margin-bottom:6px">Icons — one 1.5 px stroke set, round caps</div>
+            <div style="display:flex;gap:var(--sp-3);color:var(--muted)">
+              <svg class="ic" viewBox="0 0 24 24"><path d="M8 3h8v3l-1 2v10a2 2 0 0 1-2 2h-2a2 2 0 0 1-2-2V8L8 6Z"/></svg>
+              <svg class="ic" viewBox="0 0 24 24"><path d="M12 20V9"/><path d="M12 12c-3 0-5-2-5-4 3 0 5 1 5 4Z"/></svg>
+              <svg class="ic" viewBox="0 0 24 24"><path d="M12 4c3 4 5 6 5 8a5 5 0 0 1-10 0c0-2 2-4 5-8Z"/></svg>
+              <svg class="ic" viewBox="0 0 24 24"><path d="M12 7v6"/><circle cx="12" cy="16.5" r=".9" fill="currentColor"/><circle cx="12" cy="12" r="9"/></svg>
+              <svg class="ic" viewBox="0 0 24 24"><path d="M5 13l4 4L19 7"/></svg>
+              <svg class="ic" viewBox="0 0 24 24"><circle cx="12" cy="12" r="7"/><path d="M12 9v6M9.5 10.5h5M9.5 13.5h5"/></svg>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="note">Handoff sheet. Every value here is copied from design/palette.css and design/scales.css; nothing was typed by hand.</div>
+</section>
+
+<!-- ============================ 8. NIGHT ============================ -->
+<section class="board" id="night" data-board="night" style="--w:1180px">
+  <header><b>Firelight — the bench after sunset, plus the theme picker</b><code>1180×740</code></header>
+  <div class="artboard" style="width:1180px;height:740px">
+    <div class="screen" style="padding:var(--sp-4);gap:var(--sp-3)">
+      <div class="topbar">
+        <svg class="ic l" viewBox="0 0 24 24" style="color:var(--accent)"><path d="M12 3c3 4 5 6 5 8a5 5 0 0 1-10 0c0-2 2-4 5-8Z"/><path d="M12 21v-6"/></svg>
+        <div><h3 class="ph" style="font-size:var(--fs-m)">The bench</h3><div class="lbl ab">Day 12 · Autumn 3 · 21:40, the lamp is on</div></div>
+        <div class="divider"></div>
+        <div style="display:flex;gap:var(--sp-2);margin-left:var(--sp-2)">
+          <span class="chip" style="color:var(--accent);border-color:var(--accent)"><i style="width:12px;height:12px;border-radius:3px;background:var(--accent);display:inline-block"></i>Daylight</span>
+          <span class="chip accent"><i style="width:12px;height:12px;border-radius:3px;background:var(--accent);display:inline-block"></i>Firelight</span>
+          <span class="chip"><i style="width:12px;height:12px;border-radius:3px;background:var(--info);display:inline-block"></i>Frostlight</span>
+        </div>
+        <div style="margin-left:auto;display:flex;align-items:center;gap:var(--sp-2)">
+          <svg class="ic s" viewBox="0 0 24 24" style="color:var(--warn)"><circle cx="12" cy="12" r="8"/><path d="M12 8v8M9.5 9.8h5M9.5 14.2h5"/></svg>
+          <span class="ab" style="font-weight:600">1,284 gp</span>
+        </div>
+      </div>
+      <div class="cols">
+        <div class="panel" style="width:350px">
+          <div class="ptitle"><h3><svg class="ic s" viewBox="0 0 24 24"><path d="M4 9h16v10H4z"/><path d="M9 9V6a3 3 0 0 1 6 0v3"/><path d="M4 14h16"/></svg>Recipes</h3><span class="lbl ab">all 14</span></div>
+          <div class="pbody" style="display:flex;flex-direction:column;gap:var(--sp-3);padding:var(--sp-3)">
+            <div class="rcard sel">
+              <div class="thumb"><svg class="ic l" viewBox="0 0 24 24"><path d="M5 11h14l-1.5 8h-11Z"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/><path d="M9 15h6"/></svg></div>
+              <div class="rmain">
+                <div class="rname">Honey oat cake</div>
+                <div class="rsub">Bake · 25 min · everything in the pantry</div>
+                <div class="needs">
+                  <span class="need"><svg class="ic s" viewBox="0 0 24 24"><path d="M12 20V9"/><path d="M12 12c-3 0-5-2-5-4 3 0 5 1 5 4Z"/><path d="M12 14c3 0 5-2 5-4-3 0-5 1-5 4Z"/></svg>4</span>
+                  <span class="need"><svg class="ic s" viewBox="0 0 24 24"><path d="M12 4c3 4 5 6 5 8a5 5 0 0 1-10 0c0-2 2-4 5-8Z"/></svg>1</span>
+                  <span class="chip ok"><svg class="ic s" viewBox="0 0 24 24"><path d="M5 13l4 4L19 7"/></svg>ready</span>
+                </div>
+              </div>
+            </div>
+            <div class="rcard hov">
+              <div class="thumb"><svg class="ic l" viewBox="0 0 24 24"><path d="M10 3h4v4l-1 2v11a1 1 0 0 1-1 1h-1a1 1 0 0 1-1-1V9l-1-2Z"/><path d="M10 14h4"/></svg></div>
+              <div class="rmain"><div class="rname">Elderflower cordial</div><div class="rsub">Brew · 40 min</div>
+                <div class="needs"><span class="need short"><svg class="ic s" viewBox="0 0 24 24" style="stroke:var(--danger)"><path d="M12 7v6"/><circle cx="12" cy="16.5" r=".9" fill="currentColor"/></svg>5 short</span></div>
+              </div>
+            </div>
+            <div class="rcard">
+              <div class="thumb" style="border-color:var(--accent);background:var(--accent-soft)"><svg class="ic l" viewBox="0 0 24 24" style="color:var(--accent)"><path d="M7 3h10v5l-2 2v11H9V10L7 8Z"/><path d="M7 14h10"/></svg></div>
+              <div class="rmain"><div class="rname">Barley preserve</div><div class="rsub">Preserves · 1 h</div>
+                <div class="needs"><span class="chip ok"><svg class="ic s" viewBox="0 0 24 24"><path d="M5 13l4 4L19 7"/></svg>ready</span></div>
+              </div>
+            </div>
+            <div class="rcard dis">
+              <div class="thumb short"><svg class="ic l" viewBox="0 0 24 24" style="color:var(--muted)"><path d="M12 3v18"/><path d="M8 21h8"/></svg></div>
+              <div class="rmain"><div class="rname">Split garlic braid</div><div class="rsub">Locked · Bram's cellar key</div></div>
+            </div>
+          </div>
+        </div>
+        <div class="panel" style="flex:1">
+          <div class="ptitle"><h3>Working shelf</h3><span class="lbl ab">41 of 72 slots</span></div>
+          <div class="pbody" style="display:flex;flex-direction:column;gap:var(--sp-4)">
+            <div>
+              <div class="lbl" style="margin-bottom:6px">Preserves <span class="ab">· 9 items</span></div>
+              <div class="grid8">
+                <div class="slot"><svg class="ic" viewBox="0 0 24 24"><path d="M8 3h8v3l-1 2v10a2 2 0 0 1-2 2h-2a2 2 0 0 1-2-2V8L8 6Z"/></svg><span class="q ab">12</span></div>
+                <div class="slot"><svg class="ic" viewBox="0 0 24 24"><path d="M7 3h10v5l-2 2v11H9V10L7 8Z"/></svg><span class="q ab">5</span></div>
+                <div class="slot"><svg class="ic" viewBox="0 0 24 24"><path d="M10 3h4v18h-4z"/><path d="M10 8h4M10 12h4M10 16h4"/></svg><span class="q ab">3</span></div>
+                <div class="slot sel"><svg class="ic" viewBox="0 0 24 24" style="color:var(--accent)"><path d="M12 4c3 4 5 6 5 8a5 5 0 0 1-10 0c0-2 2-4 5-8Z"/></svg><span class="q ab">3</span></div>
+                <div class="slot"><svg class="ic" viewBox="0 0 24 24"><path d="M6 14c0-4 3-7 6-7s6 3 6 7"/><path d="M6 14h12v6H6z"/></svg><span class="q ab">7</span></div>
+                <div class="slot"><svg class="ic" viewBox="0 0 24 24"><circle cx="12" cy="12" r="7"/><path d="M12 9v6M9.5 10.5h5M9.5 13.5h5"/></svg><span class="q ab">1</span></div>
+                <div class="slot empty"></div><div class="slot empty"></div>
+              </div>
+            </div>
+            <div>
+              <div class="lbl" style="margin-bottom:6px">Seeds &amp; fibre <span class="ab">· 14 items</span></div>
+              <div class="grid8">
+                <div class="slot"><svg class="ic" viewBox="0 0 24 24"><path d="M12 20V9"/><path d="M12 12c-3 0-5-2-5-4 3 0 5 1 5 4Z"/><path d="M12 14c3 0 5-2 5-4-3 0-5 1-5 4Z"/></svg><span class="q ab">12</span></div>
+                <div class="slot"><svg class="ic" viewBox="0 0 24 24"><path d="M12 21c0-5 0-8 0-8"/><path d="M12 13c-3 0-5-2-5-4 3 0 5 1 5 4Z"/></svg><span class="q ab">9</span></div>
+                <div class="slot"><svg class="ic" viewBox="0 0 24 24"><path d="M8 3h8v4H8z"/><path d="M9 7v14M15 7v14"/></svg><span class="q ab">6</span></div>
+                <div class="slot"><svg class="ic" viewBox="0 0 24 24"><path d="M12 20V9"/><path d="M12 12c-3 0-5-2-5-4 3 0 5 1 5 4Z"/></svg><span class="q ab">21</span></div>
+                <div class="slot"><svg class="ic" viewBox="0 0 24 24"><path d="M4 18c4-6 8-6 16 0"/><path d="M4 12c4-6 8-6 16 0"/></svg><span class="q ab">4</span></div>
+                <div class="slot"><svg class="ic" viewBox="0 0 24 24"><path d="M12 3l5 6-5 12-5-12Z"/></svg><span class="q ab">8</span></div>
+                <div class="slot"><svg class="ic" viewBox="0 0 24 24"><path d="M7 13c0-3 2-5 5-5s5 2 5 5"/><path d="M7 13h10v6H7z"/></svg><span class="q ab">2</span></div>
+                <div class="slot"><svg class="ic" viewBox="0 0 24 24"><circle cx="9" cy="14" r="5"/><path d="M13 10l6-6"/></svg><span class="q ab">2</span></div>
+              </div>
+            </div>
+            <div style="margin-top:auto">
+              <div class="scrollrail"><i></i></div>
+              <div class="lbl ab" style="margin-top:6px">row 2 of 3 · Firelight raises the accent to #97b86c so olive survives on near-black</div>
+            </div>
+          </div>
+        </div>
+        <div class="panel" style="width:330px;background:var(--raised)">
+          <div class="ptitle" style="background:var(--surface)"><h3><svg class="ic s" viewBox="0 0 24 24"><path d="M5 4h14v16H5z"/><path d="M9 4v16"/><path d="M12 9h4M12 13h4"/></svg>Ledger</h3><span class="lbl ab">1 of 14</span></div>
+          <div class="pbody" style="display:flex;flex-direction:column;gap:var(--sp-3)">
+            <div style="font:600 var(--fs-m)/1.2 var(--font-display);letter-spacing:-.01em">Honey oat cake</div>
+            <div class="rule" style="margin:0"></div>
+            <div>
+              <div class="lbl" style="margin-bottom:4px">Shelf after crafting</div>
+              <div class="ledger-row"><svg class="ic s" viewBox="0 0 24 24"><path d="M12 20V9"/><path d="M12 12c-3 0-5-2-5-4 3 0 5 1 5 4Z"/><path d="M12 14c3 0 5-2 5-4-3 0-5 1-5 4Z"/></svg><span class="lname">Oat flour</span><span class="lmath ab"><span class="before">12</span>→<span class="after">8</span></span></div>
+              <div class="ledger-row"><svg class="ic s" viewBox="0 0 24 24"><path d="M12 4c3 4 5 6 5 8a5 5 0 0 1-10 0c0-2 2-4 5-8Z"/></svg><span class="lname">Wild honey</span><span class="lmath ab"><span class="before">3</span>→<span class="after">2</span></span></div>
+              <div class="ledger-row"><svg class="ic s" viewBox="0 0 24 24"><path d="M6 14c0-4 3-7 6-7s6 3 6 7"/><path d="M6 14h12v6H6z"/></svg><span class="lname">Butter</span><span class="lmath ab"><span class="before">2</span>→<span class="after">1</span></span></div>
+            </div>
+            <div class="rule" style="margin:0"></div>
+            <div class="outblock ready">
+              <div style="width:48px;height:48px;border-radius:var(--radius-s);border:1px solid var(--line);display:flex;align-items:center;justify-content:center;flex:none;background:var(--surface)"><svg class="ic" viewBox="0 0 24 24"><path d="M5 11h14l-1.5 8h-11Z"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/></svg></div>
+              <div><div style="font-weight:600">Cake, 1 slice</div><div class="lbl ab">+34 energy · gifts well</div></div>
+              <div class="ocount">2</div>
+            </div>
+            <div style="display:flex;gap:var(--sp-2)">
+              <button class="btn primary">Craft</button>
+              <button class="btn ghost">Craft all</button>
+            </div>
+            <div class="chip accent" style="align-self:flex-start"><svg class="ic s" viewBox="0 0 24 24"><path d="M5 13l4 4L19 7"/></svg>Everything is in the pantry</div>
+            <div class="statusbar" style="margin-top:auto;border-top:1px solid var(--line);padding-top:var(--sp-3)">
+              <svg class="ic s" viewBox="0 0 24 24"><path d="M12 3v18"/><path d="M8 7h8"/></svg>Warm surfaces here are a lamp, not a drop shadow
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="note">Firelight is a second design, not an inversion: surfaces drop to warm-biased #131411/#1b1913, the accent lifts to #97b86c, and warmth comes from the lamp rim on cards. Text on bg measures 14.2:1.</div>
+</section>
+
+</div>
+</div>
+<script>
+(function(){
+  var q=new URLSearchParams(location.search), only=q.get('only'), th=q.get('theme');
+  function theme(id){document.documentElement.dataset.theme=id;
+    document.querySelectorAll('.themes button').forEach(function(b){b.setAttribute('aria-pressed',b.dataset.theme===id)});
+    try{localStorage.setItem('canvas-theme',id)}catch(e){}}
+  document.querySelectorAll('.themes button').forEach(function(b){b.onclick=function(){theme(b.dataset.theme)}});
+  try{th=th||localStorage.getItem('canvas-theme')}catch(e){}
+  theme(th||'day');
+  if(only){document.body.classList.add('only');var el=document.querySelector('[data-board="'+only+'"]');if(el)el.classList.add('on');}
+})();
+</script>
+<!-- cv-runtime -->
+<script>
+/* canvas-runtime: turns any page whose boards carry [data-board] into a pan/zoom infinite canvas.
+ * Injected inline by new-canvas.py / canvasify.py. No dependencies. Never needed by Claude's own Design canvas.
+ * Gestures: drag background = pan, wheel = pan (or zoom, toggle), ctrl/cmd+wheel or pinch = zoom,
+ * double-click background = fit all, F / expand button = focus a board, Esc = back, arrows = next/prev board in focus,
+ * 0 = fit all, 1 = 100%, + / - = zoom, download button = board as standalone HTML.
+ * URL: ?only=<id> single board (used by shoot.sh) · ?flat=1 classic scroll page · #<id> opens focused on a board.
+ */
+(function () {
+  if (window.__canvasRuntime) return;
+  window.__canvasRuntime = true;
+  var doc = document, root = doc.documentElement, body = doc.body;
+  var q = new URLSearchParams(location.search);
+  var all = [].slice.call(doc.querySelectorAll('[data-board]')).filter(function (b) { return !b.parentElement.closest('[data-board]'); });
+  if (!all.length) return;
+  var SKIP = /^(SCRIPT|STYLE|LINK|META|TITLE|TEMPLATE)$/;
+  var reduce = window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+  /* ---------- ?only=<id>: show one board, nothing else (screenshots) ---------- */
+  var only = q.get('only');
+  if (only) {
+    var target = all.filter(function (b) { return b.dataset.board === only; })[0];
+    if (target) {
+      all.forEach(function (b) { if (b !== target) b.style.display = 'none'; });
+      for (var n = target; n && n !== body; n = n.parentElement) {
+        [].forEach.call(n.parentElement.children, function (s) { if (s !== n && !SKIP.test(s.tagName)) s.style.display = 'none'; });
+      }
+      root.dataset.cv = 'only';
+    }
+    return;
+  }
+  if (q.get('flat')) { root.dataset.cv = 'flat'; return; }
+
+  /* ---------- structure: world = lowest common ancestor of the boards ---------- */
+  function lca(els) {
+    var a = els[0].parentElement;
+    while (a && !els.every(function (e) { return a.contains(e); })) a = a.parentElement;
+    return a;
+  }
+  var A = lca(all);
+  if (!A || A === body || A === root) {
+    A = doc.createElement('div');
+    all[0].parentElement.insertBefore(A, all[0]);
+    all.forEach(function (b) { A.appendChild(b); });
+  }
+  var cs0 = getComputedStyle(body), pageBg = cs0.backgroundColor, pageFg = cs0.color;
+  var pageBgOrig = pageBg;
+  if (/rgba\(0, 0, 0, 0\)|transparent/.test(pageBgOrig)) pageBgOrig = getComputedStyle(root).backgroundColor;
+  if (/rgba\(0, 0, 0, 0\)|transparent/.test(pageBgOrig)) pageBgOrig = '#ffffff';
+  pageBg = '#0f1211'; pageFg = 'rgb(214, 220, 217)';
+
+  var chain = [];
+  for (var c = A; c && c !== body; c = c.parentElement) chain.push(c);
+  var chrome = [];
+  chain.forEach(function (nd) {
+    [].forEach.call(nd.parentElement.children, function (s) {
+      if (s !== nd && chain.indexOf(s) < 0 && !SKIP.test(s.tagName) && chrome.indexOf(s) < 0) chrome.push(s);
+    });
+  });
+
+  /* ---------- CSS ---------- */
+  var css = [
+    'html.cv,html.cv body{margin:0!important;padding:0!important;height:100%!important;overflow:hidden!important;overscroll-behavior:none;background:' + pageBg + '!important;touch-action:none}',
+    '.cv-anc{position:fixed!important;inset:0!important;width:auto!important;height:auto!important;max-width:none!important;max-height:none!important;margin:0!important;padding:0!important;overflow:hidden!important;border:0!important;background:transparent!important;transform:none!important;display:block!important}',
+    '.cv-world{position:absolute!important;left:0!important;top:0!important;margin:0!important;padding:48px!important;max-width:none!important;transform-origin:0 0;will-change:transform;box-sizing:content-box!important}',
+    '.cv-world.cv-anim{transition:transform .26s cubic-bezier(.2,.8,.2,1)}',
+    '.cv-world>*{max-width:none}',
+    '.cv-board-head{display:flex;align-items:center;gap:8px}',
+    '.cv-tools{margin-left:auto;display:inline-flex;gap:4px}',
+    '.cv-btn{all:unset;box-sizing:border-box;display:inline-grid;place-items:center;width:28px;height:28px;border-radius:7px;cursor:pointer;opacity:.7;color:inherit}',
+    '.cv-btn:hover,.cv-btn:focus-visible{opacity:1;background:rgba(127,127,127,.22)}',
+    '.cv-btn svg{width:16px;height:16px;stroke:currentColor;fill:none;stroke-width:1.6;stroke-linecap:round;stroke-linejoin:round}',
+    '.cv-meta,.cv-meta *{color:#aab3af!important}.cv-meta b,.cv-meta strong,.cv-board-head b{color:#e6ebe8!important}.cv-meta code{background:rgba(255,255,255,.08)!important}',
+    '.cv-art{transform:translateZ(0);box-shadow:0 8px 40px rgba(0,0,0,.45)!important;border-color:rgba(255,255,255,.08)!important}',
+    'body.cv-focus [data-board]:not(.cv-on){opacity:.18;transition:opacity .2s}',
+    '[data-board]{transition:opacity .2s}',
+    '#cv-hud{position:fixed;left:12px;top:12px;z-index:30;max-width:min(420px,calc(100vw - 24px));max-height:calc(100vh - 90px);overflow:auto;box-sizing:border-box;padding:12px 14px;border-radius:12px;border:1px solid rgba(127,127,127,.35);background:' + pageBg + ';color:' + pageFg + ';font:13px/1.5 system-ui,sans-serif;box-shadow:0 6px 24px rgba(0,0,0,.25)}',
+    '#cv-hud.cv-min{padding:6px 10px;cursor:pointer}#cv-hud.cv-min>*:not(.cv-hud-t){display:none!important}',
+    '#cv-hud,#cv-hud *{color:#d6dcd9!important}#cv-hud a{text-decoration:none}#cv-hud button{border-color:#3a4240!important}#cv-hud h1{font-size:16px!important;margin:0 0 4px!important}#cv-hud .cv-hud-t{display:flex;align-items:center;gap:8px;margin:0 0 6px;font-weight:600;font-size:12px;opacity:.8}#cv-hud.cv-min .cv-hud-t{margin:0}',
+    '#cv-hud>*{margin-inline:0!important;max-width:none!important}',
+    '#cv-bar{position:fixed;left:50%;bottom:14px;transform:translateX(-50%);z-index:31;display:flex;align-items:center;gap:2px;padding:4px;border-radius:12px;background:rgba(18,20,19,.94);color:#e6e9e7;border:1px solid #2d3331;font:12px system-ui,sans-serif;box-shadow:0 6px 24px rgba(0,0,0,.35)}',
+    '#cv-bar .cv-btn{width:32px;height:32px;opacity:.9}#cv-bar .cv-zoom{min-width:48px;text-align:center;font-variant-numeric:tabular-nums;opacity:.85}',
+    '#cv-bar .cv-txt{all:unset;box-sizing:border-box;padding:0 10px;height:32px;line-height:32px;border-radius:7px;cursor:pointer;opacity:.9;font:12px/32px system-ui,sans-serif}#cv-bar .cv-txt:hover,#cv-bar .cv-txt:focus-visible{background:rgba(255,255,255,.12)}',
+    '#cv-bar .cv-sep{width:1px;height:18px;background:#2d3331;margin:0 4px}',
+    '#cv-list{position:fixed;left:50%;bottom:62px;transform:translateX(-50%);z-index:32;max-height:50vh;width:min(360px,calc(100vw - 24px));overflow:auto;padding:6px;border-radius:12px;background:rgba(18,20,19,.97);color:#e6e9e7;border:1px solid #2d3331;font:13px system-ui,sans-serif;box-shadow:0 10px 30px rgba(0,0,0,.4)}',
+    '#cv-list button{all:unset;box-sizing:border-box;display:flex;width:100%;gap:10px;padding:7px 10px;border-radius:7px;cursor:pointer}#cv-list button:hover,#cv-list button:focus-visible{background:rgba(255,255,255,.12)}#cv-list small{margin-left:auto;opacity:.55;font-variant-numeric:tabular-nums}',
+    '#cv-hint{position:fixed;right:12px;bottom:14px;z-index:30;font:11px system-ui,sans-serif;color:' + pageFg + ';opacity:.5;max-width:40vw;text-align:right}',
+    '@media (max-width:640px){#cv-hint{display:none}}',
+    'html.cv-bare #cv-hud,html.cv-bare #cv-bar,html.cv-bare #cv-hint{display:none!important}'
+  ].join('\n');
+  var st = doc.createElement('style'); st.id = 'cv-runtime-style'; st.textContent = css; doc.head.appendChild(st);
+
+  root.classList.add('cv'); if (q.get('bare')) root.classList.add('cv-bare');
+  chain.forEach(function (nd, i) { nd.classList.add(i === 0 ? 'cv-world' : 'cv-anc'); });
+  if (!all.length) return;
+  if (getComputedStyle(A).display === 'block') { A.style.display = 'flex'; A.style.flexWrap = 'wrap'; A.style.alignItems = 'flex-start'; A.style.gap = '56px 40px'; }
+  var area = 0;
+  all.forEach(function (b) { var r = b.getBoundingClientRect(); area += (r.width + 40) * (r.height + 80); });
+  var W = Math.max(1400, Math.round(Math.sqrt(area * (innerWidth / Math.max(400, innerHeight))) * 1.08));
+  A.style.width = W + 'px';
+
+  /* ---------- HUD (page chrome moved here), toolbar ---------- */
+  var hud = doc.createElement('div'); hud.id = 'cv-hud';
+  var hudT = doc.createElement('div'); hudT.className = 'cv-hud-t'; hudT.innerHTML = '<span>Canvas · ' + all.length + ' tahta</span><span style="margin-left:auto;opacity:.6">▾</span>';
+  hud.appendChild(hudT); chrome.forEach(function (s) { hud.appendChild(s); });
+  hudT.addEventListener('click', function () { hud.classList.toggle('cv-min'); });
+  body.appendChild(hud);
+  hud.classList.add('cv-min');
+
+  var ICON = {
+    expand: '<svg viewBox="0 0 16 16"><path d="M9.5 2.5h4v4M6.5 13.5h-4v-4M13.5 2.5 9 7M2.5 13.5 7 9"/></svg>',
+    dl: '<svg viewBox="0 0 16 16"><path d="M8 2.5v7.5M4.8 7 8 10.2 11.2 7M3 13.5h10"/></svg>',
+    minus: '<svg viewBox="0 0 16 16"><path d="M3.5 8h9"/></svg>',
+    plus: '<svg viewBox="0 0 16 16"><path d="M3.5 8h9M8 3.5v9"/></svg>',
+    fit: '<svg viewBox="0 0 16 16"><path d="M2.5 6V2.5H6M10 2.5h3.5V6M13.5 10v3.5H10M6 13.5H2.5V10"/></svg>'
+  };
+  var bar = doc.createElement('div'); bar.id = 'cv-bar'; bar.setAttribute('role', 'toolbar'); bar.setAttribute('aria-label', 'Canvas');
+  bar.innerHTML = '<button class="cv-btn" data-a="out" title="Uzaklaştır (-)">' + ICON.minus + '</button><span class="cv-zoom" id="cv-z">100%</span><button class="cv-btn" data-a="in" title="Yakınlaştır (+)">' + ICON.plus + '</button><span class="cv-sep"></span><button class="cv-btn" data-a="fit" title="Hepsini sığdır (0)">' + ICON.fit + '</button><button class="cv-txt" data-a="one" title="%100 (1)">1:1</button><span class="cv-sep"></span><button class="cv-txt" data-a="list" title="Tahtalar">Tahtalar</button><button class="cv-txt" data-a="wheel" title="Tekerlek davranışı">Tekerlek: kaydır</button>';
+  body.appendChild(bar);
+  var hint = doc.createElement('div'); hint.id = 'cv-hint'; hint.textContent = 'Sürükle: gez · Ctrl+tekerlek / sıkıştır: yakınlaştır · çift tık: hepsi · F: odakla';
+  body.appendChild(hint);
+  var list = null;
+
+  /* ---------- boards: header + tools ---------- */
+  all.forEach(function (b) {
+    var big = null, ba = 0;
+    [].forEach.call(b.children, function (c) { var r = c.getBoundingClientRect(), a = r.width * r.height; if (a > ba) { ba = a; big = c; } });
+    [].forEach.call(b.children, function (c) { c.classList.add(c === big ? 'cv-art' : 'cv-meta'); });
+  });
+  function titleOf(b) {
+    if (b.dataset.title) return b.dataset.title;
+    var h = b.querySelector(':scope > header b, :scope > header, :scope > h2, :scope > h3');
+    return (h && h.textContent.trim().split('\n')[0].slice(0, 60)) || b.dataset.board;
+  }
+  all.forEach(function (b) {
+    var h = b.querySelector(':scope > header');
+    if (!h) { h = doc.createElement('header'); h.textContent = titleOf(b); h.style.cssText = 'font:600 13px system-ui,sans-serif;margin-bottom:8px'; b.insertBefore(h, b.firstChild); }
+    h.classList.add('cv-board-head');
+    var t = doc.createElement('span'); t.className = 'cv-tools';
+    t.innerHTML = '<button class="cv-btn" data-a="focus" title="Genişlet (F)" aria-label="Genişlet">' + ICON.expand + '</button><button class="cv-btn" data-a="dl" title="Tahtayı HTML olarak indir" aria-label="İndir">' + ICON.dl + '</button>';
+    h.appendChild(t);
+    h.addEventListener('dblclick', function (e) { if (!e.target.closest('.cv-btn')) focusBoard(b); });
+  });
+
+  /* ---------- view math ---------- */
+  var v = { x: 0, y: 0, k: 1 }, rects = [], vw = root.clientWidth || innerWidth, vh = root.clientHeight || innerHeight, focused = null, wheelZoom = false;
+  var LS = 'cv:' + location.pathname;
+  function unscroll() { chain.concat([root, body]).forEach(function (n) { if (n.scrollLeft || n.scrollTop) { n.scrollLeft = 0; n.scrollTop = 0; } }); }
+  doc.addEventListener('scroll', unscroll, true); window.addEventListener('hashchange', function () { unscroll(); var id = location.hash.slice(1), b = all.filter(function (x) { return x.dataset.board === id; })[0]; if (b) focusBoard(b); });
+  function apply(anim) {
+    unscroll();
+    if (anim && !reduce) A.classList.add('cv-anim'); else A.classList.remove('cv-anim');
+    A.style.transform = 'translate(' + v.x + 'px,' + v.y + 'px) scale(' + v.k + ')';
+    root.style.backgroundImage = 'radial-gradient(circle, ' + dot() + ' 1px, transparent 1.4px)';
+    var s = Math.max(8, 28 * v.k); root.style.backgroundSize = s + 'px ' + s + 'px'; root.style.backgroundPosition = v.x + 'px ' + v.y + 'px';
+    var z = doc.getElementById('cv-z'); if (z) z.textContent = Math.round(v.k * 100) + '%';
+  }
+  var dotC = null;
+  function dot() { if (!dotC) { var m = /\d+/g, n = (pageFg.match(m) || [200, 200, 200]); dotC = 'rgba(' + n[0] + ',' + n[1] + ',' + n[2] + ',.13)'; } return dotC; }
+  function measure() {
+    var keep = A.style.transform, kc = A.className; A.classList.remove('cv-anim'); A.style.transform = 'none';
+    var o = A.getBoundingClientRect(); rects = all.map(function (b) { var r = b.getBoundingClientRect(); return { el: b, x: r.left - o.left, y: r.top - o.top, w: r.width, h: r.height }; });
+    A.style.transform = keep; A.className = kc;
+  }
+  function bbox() {
+    var x0 = 1e9, y0 = 1e9, x1 = -1e9, y1 = -1e9;
+    rects.forEach(function (r) { x0 = Math.min(x0, r.x); y0 = Math.min(y0, r.y); x1 = Math.max(x1, r.x + r.w); y1 = Math.max(y1, r.y + r.h); });
+    return { x: x0, y: y0, w: x1 - x0, h: y1 - y0 };
+  }
+  function fitRect(r, pad, max) {
+    pad = pad == null ? 56 : pad; var k = Math.min((vw - pad * 2) / r.w, (vh - pad * 2) / r.h, max || 1);
+    k = Math.max(0.04, k); v.k = k; v.x = (vw - r.w * k) / 2 - r.x * k; v.y = (vh - r.h * k) / 2 - r.y * k;
+  }
+  function fitAll(anim) { exitFocus(true); fitRect(bbox(), 72, 1); apply(anim); save(); }
+  function rectOf(b) { return rects.filter(function (r) { return r.el === b; })[0]; }
+  function focusBoard(b, noDim, instant) {
+    var r = rectOf(b); if (!r) return;
+    focused = b; all.forEach(function (x) { x.classList.toggle('cv-on', x === b); });
+    body.classList.toggle('cv-focus', !noDim);
+    var head = 40, rr = { x: r.x, y: r.y - 0, w: r.w, h: r.h + head };
+    fitRect(rr, 64, 2); apply(!instant); save();
+    try { history.replaceState(null, '', '#' + b.dataset.board); } catch (e) {}
+  }
+  function exitFocus(silent) {
+    if (!focused) return; focused = null; body.classList.remove('cv-focus'); all.forEach(function (x) { x.classList.remove('cv-on'); });
+    try { history.replaceState(null, '', location.pathname + location.search); } catch (e) {}
+    if (!silent) fitAll(true);
+  }
+  function zoomAt(cx, cy, f, anim) {
+    var nk = Math.min(4, Math.max(0.04, v.k * f)), r = nk / v.k;
+    v.x = cx - (cx - v.x) * r; v.y = cy - (cy - v.y) * r; v.k = nk; apply(anim); save();
+  }
+  function save() { try { localStorage.setItem(LS, JSON.stringify(v)); } catch (e) {} }
+  function step(dir) {
+    if (!focused) return; var i = all.indexOf(focused), j = Math.min(all.length - 1, Math.max(0, i + dir)); if (j !== i) focusBoard(all[j]);
+  }
+
+  /* ---------- download one board ---------- */
+  function download(b) {
+    var clone = b.cloneNode(true);
+    [].forEach.call(clone.querySelectorAll('.cv-tools'), function (n) { n.remove(); });
+    clone.classList.remove('cv-on'); clone.style.opacity = '';
+    var styles = [].map.call(doc.querySelectorAll('style,link[rel=stylesheet]'), function (n) { return n.id === 'cv-runtime-style' ? '' : n.outerHTML; }).join('\n');
+    var theme = root.getAttribute('data-theme') ? ' data-theme="' + root.getAttribute('data-theme') + '"' : '';
+    var html = '<!doctype html><html lang="' + (root.lang || 'tr') + '"' + theme + '><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>' + titleOf(b).replace(/</g, '&lt;') + '</title>' + styles + '<style>html,body{margin:0;padding:24px;background:' + pageBgOrig + '!important;height:auto!important;overflow:auto!important}</style></head><body>' + clone.outerHTML + '</body></html>';
+    var a = doc.createElement('a'); a.href = URL.createObjectURL(new Blob([html], { type: 'text/html' }));
+    a.download = (b.dataset.board || 'board') + '.html'; doc.body.appendChild(a); a.click(); setTimeout(function () { URL.revokeObjectURL(a.href); a.remove(); }, 500);
+  }
+
+  /* ---------- list popover ---------- */
+  function toggleList() {
+    if (list) { list.remove(); list = null; return; }
+    list = doc.createElement('div'); list.id = 'cv-list';
+    list.innerHTML = all.map(function (b, i) { return '<button data-i="' + i + '"><span>' + titleOf(b).replace(/</g, '&lt;') + '</span><small>' + Math.round(rectOf(b).w) + '×' + Math.round(rectOf(b).h) + '</small></button>'; }).join('');
+    list.addEventListener('click', function (e) { var bt = e.target.closest('button'); if (!bt) return; focusBoard(all[+bt.dataset.i], true); list.remove(); list = null; });
+    body.appendChild(list);
+  }
+
+  /* ---------- events ---------- */
+  doc.addEventListener('click', function (e) {
+    var bt = e.target.closest('.cv-btn,.cv-txt'); if (!bt) { if (list && !e.target.closest('#cv-list')) { list.remove(); list = null; } return; }
+    var a = bt.dataset.a, b = bt.closest('[data-board]');
+    if (a === 'focus') { if (focused === b) fitAll(true); else focusBoard(b); }
+    else if (a === 'dl') download(b);
+    else if (a === 'in') zoomAt(vw / 2, vh / 2, 1.25, true);
+    else if (a === 'out') zoomAt(vw / 2, vh / 2, 0.8, true);
+    else if (a === 'fit') fitAll(true);
+    else if (a === 'one') { exitFocus(true); zoomAt(vw / 2, vh / 2, 1 / v.k, true); }
+    else if (a === 'list') toggleList();
+    else if (a === 'wheel') { wheelZoom = !wheelZoom; bt.textContent = 'Tekerlek: ' + (wheelZoom ? 'yakınlaştır' : 'kaydır'); }
+  });
+  doc.addEventListener('wheel', function (e) {
+    if (e.target.closest('#cv-hud,#cv-list')) return;
+    var inScroll = false; for (var n = e.target; n && n !== body; n = n.parentElement) { if (n.scrollHeight > n.clientHeight + 2 && /(auto|scroll)/.test(getComputedStyle(n).overflowY) && !n.classList.contains('cv-anc')) { inScroll = true; break; } }
+    if (inScroll && !e.ctrlKey) return;
+    e.preventDefault();
+    var dy = e.deltaMode === 1 ? e.deltaY * 33 : e.deltaY, dx = e.deltaMode === 1 ? e.deltaX * 33 : e.deltaX;
+    if (e.ctrlKey || e.metaKey || wheelZoom) zoomAt(e.clientX, e.clientY, Math.exp(-dy * (e.ctrlKey ? 0.01 : 0.0016)));
+    else { if (e.shiftKey && !dx) { dx = dy; dy = 0; } v.x -= dx; v.y -= dy; apply(); save(); }
+    exitFocusDim();
+  }, { passive: false });
+  function exitFocusDim() { if (focused) { focused = null; body.classList.remove('cv-focus'); all.forEach(function (x) { x.classList.remove('cv-on'); }); } }
+
+  var ptrs = {}, drag = null, pinch = null, space = false;
+  function noPan(t) { return t.closest('#cv-hud,#cv-bar,#cv-list,.cv-btn,a,button,input,select,textarea,summary,label,[contenteditable]'); }
+  doc.addEventListener('pointerdown', function (e) {
+    if (noPan(e.target)) return;
+    var inBoard = e.target.closest('.artboard');
+    if (inBoard && !(space || e.button === 1 || e.altKey) && e.pointerType === 'mouse') return;
+    if (e.button > 1) return;
+    ptrs[e.pointerId] = { x: e.clientX, y: e.clientY };
+    var ids = Object.keys(ptrs);
+    if (ids.length === 2) { var p = ids.map(function (i) { return ptrs[i]; }); pinch = { d: Math.hypot(p[0].x - p[1].x, p[0].y - p[1].y), cx: (p[0].x + p[1].x) / 2, cy: (p[0].y + p[1].y) / 2 }; drag = null; }
+    else { drag = { x: e.clientX, y: e.clientY, vx: v.x, vy: v.y, moved: false }; }
+    doc.body.style.cursor = 'grabbing'; e.preventDefault();
+  });
+  window.addEventListener('pointermove', function (e) {
+    if (!ptrs[e.pointerId]) return; ptrs[e.pointerId] = { x: e.clientX, y: e.clientY };
+    var ids = Object.keys(ptrs);
+    if (ids.length >= 2 && pinch) {
+      var p = ids.slice(0, 2).map(function (i) { return ptrs[i]; }), d = Math.hypot(p[0].x - p[1].x, p[0].y - p[1].y), cx = (p[0].x + p[1].x) / 2, cy = (p[0].y + p[1].y) / 2;
+      v.x += cx - pinch.cx; v.y += cy - pinch.cy; zoomAt(cx, cy, d / pinch.d); pinch.d = d; pinch.cx = cx; pinch.cy = cy; exitFocusDim();
+    } else if (drag) {
+      var dx = e.clientX - drag.x, dy = e.clientY - drag.y; if (!drag.moved && Math.hypot(dx, dy) < 3) return; drag.moved = true;
+      v.x = drag.vx + dx; v.y = drag.vy + dy; apply(); exitFocusDim();
+    }
+  });
+  function up(e) { delete ptrs[e.pointerId]; if (Object.keys(ptrs).length < 2) pinch = null; if (!Object.keys(ptrs).length) { drag && save(); drag = null; doc.body.style.cursor = ''; } }
+  window.addEventListener('pointerup', up); window.addEventListener('pointercancel', up);
+  doc.addEventListener('dblclick', function (e) { if (!noPan(e.target) && !e.target.closest('.artboard') && !e.target.closest('[data-board]')) fitAll(true); });
+  doc.addEventListener('keydown', function (e) {
+    if (/INPUT|TEXTAREA|SELECT/.test(e.target.tagName) || e.target.isContentEditable || e.ctrlKey || e.metaKey) return;
+    var k = e.key;
+    if (k === ' ') { space = true; e.preventDefault(); }
+    else if (k === '0') fitAll(true);
+    else if (k === '1') { exitFocus(true); zoomAt(vw / 2, vh / 2, 1 / v.k, true); }
+    else if (k === '+' || k === '=') zoomAt(vw / 2, vh / 2, 1.25, true);
+    else if (k === '-' || k === '_') zoomAt(vw / 2, vh / 2, 0.8, true);
+    else if (k === 'Escape') { if (list) { list.remove(); list = null; } else if (focused) fitAll(true); }
+    else if (k === 'f' || k === 'F') { var cur = focused || nearestBoard(); if (focused) fitAll(true); else focusBoard(cur); }
+    else if (k === 'ArrowRight' || k === 'ArrowDown' || k === 'PageDown') { if (focused) { step(1); e.preventDefault(); } else { v.x -= (k === 'ArrowRight' ? 80 : 0); v.y -= (k === 'ArrowDown' ? 80 : 0); apply(); } }
+    else if (k === 'ArrowLeft' || k === 'ArrowUp' || k === 'PageUp') { if (focused) { step(-1); e.preventDefault(); } else { v.x += (k === 'ArrowLeft' ? 80 : 0); v.y += (k === 'ArrowUp' ? 80 : 0); apply(); } }
+  });
+  doc.addEventListener('keyup', function (e) { if (e.key === ' ') space = false; });
+  function nearestBoard() {
+    var cx = (vw / 2 - v.x) / v.k, cy = (vh / 2 - v.y) / v.k, best = all[0], bd = 1e18;
+    rects.forEach(function (r) { var d = Math.hypot(r.x + r.w / 2 - cx, r.y + r.h / 2 - cy); if (d < bd) { bd = d; best = r.el; } });
+    return best;
+  }
+  var rz = null;
+  window.addEventListener('resize', function () { clearTimeout(rz); rz = setTimeout(function () { vw = root.clientWidth || innerWidth; vh = root.clientHeight || innerHeight; if (focused) focusBoard(focused, false, true); }, 80); });
+
+  /* ---------- boot ---------- */
+  function boot() {
+    measure(); vw = root.clientWidth || innerWidth; vh = root.clientHeight || innerHeight;
+    var id = (location.hash || '').slice(1), hit = all.filter(function (b) { return b.dataset.board === id; })[0], saved = null;
+    try { saved = JSON.parse(localStorage.getItem(LS) || 'null'); } catch (e) {}
+    var qv = (q.get('view') || '').split(',').map(Number);
+    if (qv.length === 3 && qv.every(isFinite) && qv[2] > 0) { v = { x: qv[0], y: qv[1], k: qv[2] }; apply(false); }
+    else if (hit) focusBoard(hit, false, true);
+    else if (saved && isFinite(saved.k) && !q.get('cvtest')) { v = saved; apply(); }
+    else fitAll(false);
+    root.dataset.cv = 'ready'; root.dataset.cvBoards = String(all.length);
+    (function () { var hr = hit ? rectOf(hit) : rects[0]; root.dataset.cvDbg = JSON.stringify({ rect: hr && [hr.x, hr.y, hr.w, hr.h].map(Math.round), v: [v.x, v.y, v.k].map(function (n) { return +n.toFixed(2); }), vw: vw, vh: vh, actual: hit ? (function () { var a = hit.getBoundingClientRect(); return [a.left, a.top, a.width, a.height].map(Math.round); })() : null, cw: root.clientWidth, iw: innerWidth, W: W, aw: A.offsetWidth, dispA: getComputedStyle(A).display, wrap: getComputedStyle(A).flexWrap, meas: rects.slice(0, 5).map(function (r) { return Math.round(r.x); }), now: all.slice(0, 5).map(function (b) { return Math.round((b.getBoundingClientRect().left - v.x) / v.k); }) }); })();
+    window.__canvas = { view: function () { return v; }, fit: fitAll, focus: function (id2) { var b = all.filter(function (x) { return x.dataset.board === id2; })[0]; if (b) focusBoard(b); }, zoomAt: zoomAt, boards: all, rects: function () { return rects; } };
+    if (q.get('cvtest') || q.get('cvrects')) root.dataset.cvRects = JSON.stringify(rects.map(function (r) { return [r.el.dataset.board, Math.round(r.x), Math.round(r.y), Math.round(r.w), Math.round(r.h)]; }));
+    if (q.get('cvtest')) {
+      fitAll(false); var k0 = v.k; zoomAt(300, 200, 2); var k1 = v.k; fitAll(false); focusBoard(all[0], false, true); var f = v.k; fitAll(false);
+      var hr = hit ? rectOf(hit) : rects[0]; root.dataset.cvDbg = JSON.stringify({ rect: hr && [hr.x, hr.y, hr.w, hr.h].map(Math.round), v: [v.x, v.y, v.k].map(function (n) { return +n.toFixed(2); }), vw: vw, vh: vh });
+      var esc = 0; all.forEach(function (b) { var br = b.getBoundingClientRect(); [].forEach.call(b.querySelectorAll('*'), function (el) { if (getComputedStyle(el).position === 'fixed') { var r = el.getBoundingClientRect(); if (r.right < br.left - 2 || r.left > br.right + 2 || r.bottom < br.top - 2 || r.top > br.bottom + 2) esc++; } }); });
+      root.dataset.cvTest = JSON.stringify({ fixedEscaped: esc, k0: +k0.toFixed(3), zoomed: +(k1 / k0).toFixed(3), focusK: +f.toFixed(3), boards: all.length, world: Math.round(W), hud: chrome.length });
+    }
+  }
+  var go = function () { setTimeout(boot, 20); };
+  function start() { if (doc.fonts && doc.fonts.ready) { var done = false, once = function () { if (!done) { done = true; go(); } }; doc.fonts.ready.then(once); setTimeout(once, 700); } else go(); }
+  if (doc.readyState === 'complete') start(); else window.addEventListener('load', start);
+})();
+
+</script>
+<!-- /cv-runtime -->
+</body>
+</html>

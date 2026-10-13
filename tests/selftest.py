@@ -139,6 +139,10 @@ body{font-family:"IBM Plex Sans",sans-serif;background:var(--bg);color:var(--tex
         big = os.path.join(tmp, "big.html")
         subprocess.run([sys.executable, os.path.join(SC, "new-canvas.py"), "--title", "big", "--out", big, "--boards", ",".join(f"b{i}:400x300" for i in range(60))], capture_output=True)
         t0 = time.time(); d = dom(big, "?cvtest=1"); T("canvas", "60 boards boot (stress)", tj(d).get("boards") == 60, f"{time.time() - t0:.1f}s")
+        fx = os.path.join(tmp, "fixed.html")
+        open(fx, "w").write('<!doctype html><title>f</title><style>body{background:#eee}.ab{position:relative;width:300px;height:200px;background:#fff}.dr{position:fixed;right:0;bottom:0;width:120px;height:80px;background:#c33}</style>' + "".join(f'<section data-board="b{i}"><div class="ab"><div class="dr"></div>b{i}</div></section>' for i in range(6)))
+        py("canvasify.py", fx); t = tj(dom(fx, "?cvtest=1"))
+        T("canvas", "position:fixed inside a board stays inside that board", t.get("boards") == 6 and t.get("fixedEscaped") == 0, t)
         ex = os.path.join(SK, "examples", "disk-pill-canvas.html")
         if os.path.isfile(ex):
             cp = os.path.join(tmp, "example.html"); shutil.copy(ex, cp); py("canvasify.py", cp); t = tj(dom(cp, "?cvtest=1"))

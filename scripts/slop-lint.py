@@ -109,6 +109,8 @@ def main():
     if any(int(x) < 11 for x in re.findall(r"font-size\s*:\s*(\d+)px", css)): add("med", 4, "tiny-text", "font-size under 11px.")
     # content
     if LOREM.search(text): add("high", 10, "placeholder-content", f"placeholder content: '{LOREM.search(text).group(0)}'. Use real strings.")
+    bsn = len(re.findall(r"\\n", text))
+    if bsn >= 3: add("high", 20, "escaped-newlines", f"{bsn} literal '\\n' sequences in the visible text: a string-escaping bug in the generator. Re-emit the file with real newlines.")
     em = EMOJI.findall(text)
     if em: add("med", 6, "emoji", f"{len(em)} emoji in content ({''.join(em[:5])}). Draw icons with one stroke weight.")
     nums = re.findall(r"(?<![\w.])(100|1000|1,000|50|10|99)(?:\s*%|\b)", text)
