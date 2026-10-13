@@ -8,7 +8,11 @@ sys.path.insert(0, SC)
 import palette as P
 R = []
 def run(*cmd, **kw):
-    t = time.time(); p = subprocess.run(list(map(str, cmd)), capture_output=True, text=True, timeout=kw.get("timeout", 120), cwd=kw.get("cwd"))
+    t = time.time()
+    try:
+        p = subprocess.run(list(map(str, cmd)), capture_output=True, text=True, timeout=kw.get("timeout", 120), cwd=kw.get("cwd"))
+    except subprocess.TimeoutExpired:
+        return 124, "timeout", time.time() - t
     return p.returncode, p.stdout + p.stderr, time.time() - t
 def T(group, name, ok, detail=""):
     R.append(dict(group=group, name=name, ok=bool(ok), detail=str(detail)[:300]))
@@ -102,11 +106,12 @@ body{font-family:"IBM Plex Sans",sans-serif;background:var(--bg);color:var(--tex
 
     # ---- canvas runtime (real browser)
     import shutil, re as _re
-    chrom = shutil.which("chromium") or shutil.which("google-chrome-stable") or shutil.which("google-chrome")
+    chrom = shutil.which("google-chrome-stable") or shutil.which("google-chrome") or shutil.which("chromium") or shutil.which("chromium-browser")
     def dom(path, query="", prof=None):
         if not chrom: return ""
         with tempfile.TemporaryDirectory() as td:
-            r = subprocess.run([chrom, "--headless=new", "--no-sandbox", "--disable-gpu", f"--user-data-dir={td}", "--virtual-time-budget=9000", "--window-size=1600,1000", "--dump-dom", "file://" + path + query], capture_output=True, text=True, timeout=120)
+            try: r = subprocess.run([chrom, "--headless=new", "--no-sandbox", "--disable-dev-shm-usage", "--disable-gpu", f"--user-data-dir={td}", "--virtual-time-budget=9000", "--window-size=1600,1000", "--dump-dom", "file://" + path + query], capture_output=True, text=True, timeout=120)
+            except subprocess.TimeoutExpired: return ""
         return r.stdout
     def tj(d):
         m = _re.search(r'data-cv-test="([^"]*)"', d); return json.loads(m.group(1).replace("&quot;", '"')) if m else {}

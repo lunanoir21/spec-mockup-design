@@ -32,11 +32,11 @@ has_rt = "<!-- cv-runtime -->" in src
 line(has_rt, "pan/zoom canvas runtime present (<!-- cv-runtime -->)" if has_rt else "canvas runtime missing: run `python3 scripts/canvasify.py " + o.canvas + "`")
 if has_rt:
     import shutil, tempfile
-    bin_ = shutil.which("chromium") or shutil.which("chromium-browser") or shutil.which("google-chrome-stable") or shutil.which("google-chrome")
+    bin_ = shutil.which("google-chrome-stable") or shutil.which("google-chrome") or shutil.which("chromium") or shutil.which("chromium-browser")
     if bin_:
         try:
             with tempfile.TemporaryDirectory() as td:
-                r2 = subprocess.run([bin_, "--headless=new", "--no-sandbox", "--disable-gpu", f"--user-data-dir={td}", "--virtual-time-budget=9000", "--window-size=1600,1000", "--dump-dom", "file://" + os.path.abspath(o.canvas) + "?cvtest=1"], capture_output=True, text=True, timeout=90)
+                r2 = subprocess.run([bin_, "--headless=new", "--no-sandbox", "--disable-dev-shm-usage", "--disable-gpu", f"--user-data-dir={td}", "--virtual-time-budget=9000", "--window-size=1600,1000", "--dump-dom", "file://" + os.path.abspath(o.canvas) + "?cvtest=1"], capture_output=True, text=True, timeout=90)
             m = re.search(r'data-cv-test="([^"]*)"', r2.stdout); rd = 'data-cv="ready"' in r2.stdout
             tj = json.loads(m.group(1).replace("&quot;", '"')) if m else {}
             line(rd and abs(tj.get("zoomed", 0) - 2) < 0.01 and tj.get("boards") == len(boards), f"canvas runtime boots in a real browser (boards={tj.get('boards')}, zoom x{tj.get('zoomed')}, focus k={tj.get('focusK')})")

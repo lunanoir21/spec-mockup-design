@@ -6,13 +6,13 @@ set -euo pipefail
 f=${1:?usage: shoot.sh canvas.html [outdir]}
 out=${2:-$(dirname "$f")/shots}
 mkdir -p "$out"
-bin=$(command -v chromium || command -v chromium-browser || command -v google-chrome-stable || command -v google-chrome || true)
+bin=$(command -v google-chrome-stable || command -v google-chrome || command -v chromium || command -v chromium-browser || true)
 [ -n "$bin" ] || { echo "no chromium/chrome found; open the file manually and check by eye" >&2; exit 2; }
 abs=$(realpath "$f")
 prof=$(mktemp -d)
 trap 'rm -rf "$prof"' EXIT
 run() { # url w h png
-  timeout 60 "$bin" --headless=new --disable-gpu --no-sandbox --hide-scrollbars \
+  timeout 60 "$bin" --headless=new --disable-gpu --no-sandbox --disable-dev-shm-usage --hide-scrollbars \
     --user-data-dir="$prof" --force-device-scale-factor=1 --virtual-time-budget=4000 \
     --window-size="$2,$3" --screenshot="$4" "$1" >/dev/null 2>&1 || echo "failed: $4" >&2
 }
