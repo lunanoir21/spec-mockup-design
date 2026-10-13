@@ -2,7 +2,7 @@
 """Self-test battery for the skill's scripts. Never writes outside a temp dir. Prints a table and JSON.
   python3 tests/selftest.py [--json results.json] [--projects DIR ...]
 """
-import argparse, itertools, json, os, subprocess, sys, tempfile, time
+import argparse, itertools, json, os, re, subprocess, sys, tempfile, time
 HERE = os.path.dirname(os.path.abspath(__file__)); SK = os.path.dirname(HERE); SC = os.path.join(SK, "scripts")
 sys.path.insert(0, SC)
 import palette as P
@@ -145,6 +145,32 @@ body{font-family:"IBM Plex Sans",sans-serif;background:var(--bg);color:var(--tex
             T("canvas", "bundled example boots after canvasify", t.get("boards", 0) >= 6, t)
     else:
         T("canvas", "chromium available for runtime tests", False, "no chromium")
+
+    # ---- installer (fake HOME; never touches the real one)
+    inst = os.path.join(SK, "install.sh")
+    if os.path.isfile(inst):
+        fh = os.path.join(tmp, "fakehome"); os.makedirs(os.path.join(fh, ".claude")); os.makedirs(os.path.join(fh, ".codex")); os.makedirs(os.path.join(fh, ".config", "opencode")); os.makedirs(os.path.join(fh, ".qwen", "skills", "spec-mockup-design"))
+        env = dict(os.environ, HOME=fh, NO_COLOR="1")
+        def ish(*args, inp=None):
+            e = dict(env); 
+            if inp: e["SMD_INPUT"] = inp
+            p = subprocess.run(["bash", inst, *args], capture_output=True, text=True, timeout=60, env=e); return p.returncode, p.stdout + p.stderr
+        rc, out = ish("--list"); T("installer", "--list shows detected agents", rc == 0 and "claude" in out and "detected" in out)
+        rc, out = ish("--detected", "--yes", "--dry-run"); T("installer", "--dry-run changes nothing", rc == 0 and not os.path.exists(os.path.join(fh, ".claude", "skills")))
+        rc, out = ish("--detected", "--yes", "--instructions")
+        T("installer", "--detected links claude, codex, opencode", all(os.path.islink(os.path.join(fh, *p_, "skills", "spec-mockup-design")) for p_ in ((".claude",), (".codex",), (".config", "opencode"))), out[-200:])
+        T("installer", "linked skill has a readable SKILL.md", os.path.isfile(os.path.join(fh, ".claude", "skills", "spec-mockup-design", "SKILL.md")))
+        T("installer", "--instructions adds exactly one pointer", open(os.path.join(fh, ".codex", "AGENTS.md")).read().count("spec-mockup-design") >= 1)
+        rc, out = ish("--detected", "--yes", "--instructions"); T("installer", "second run is idempotent (no duplicate pointer)", open(os.path.join(fh, ".codex", "AGENTS.md")).read().count("<!-- spec-mockup-design -->") == 1 and "already linked" in out)
+        rc, out = ish("--agents", "qwen", "--yes"); T("installer", "never overwrites an existing real directory", "left untouched" in out and os.path.isdir(os.path.join(fh, ".qwen", "skills", "spec-mockup-design")) and not os.path.islink(os.path.join(fh, ".qwen", "skills", "spec-mockup-design")))
+        rc, out = ish("--agents", "nonsense", "--yes"); T("installer", "unknown agent rejected cleanly", rc != 0 and "Traceback" not in out)
+        open(os.path.join(tmp, "in.txt"), "w").write("1 3\n\n")
+        rc, out = ish("--uninstall", inp=os.path.join(tmp, "in.txt"))
+        T("installer", "interactive picker: toggled agents off, removed only the selected link", not os.path.exists(os.path.join(fh, ".codex", "skills", "spec-mockup-design")) and os.path.islink(os.path.join(fh, ".claude", "skills", "spec-mockup-design")), out[-200:])
+        rc, out = ish("--agents", "qwen", "--uninstall", "--yes"); T("installer", "uninstall leaves non-link entries alone", os.path.isdir(os.path.join(fh, ".qwen", "skills", "spec-mockup-design")))
+        rc, out = ish("--agents", "cursor", "--copy", "--yes"); T("installer", "--copy copies instead of linking", os.path.isfile(os.path.join(fh, ".cursor", "skills", "spec-mockup-design", "SKILL.md")) and not os.path.islink(os.path.join(fh, ".cursor", "skills", "spec-mockup-design")))
+        rc, out = ish("--help"); T("installer", "--help prints usage", rc == 0 and "--agents" in out)
+    T("docs", "PROMPTS.md has at least 15 prompts", os.path.isfile(os.path.join(SK, "docs", "PROMPTS.md")) and len(re.findall(r"^\d+\. `", open(os.path.join(SK, "docs", "PROMPTS.md")).read(), flags=re.M)) >= 15)
     # ---- skill hygiene
     sm = open(os.path.join(SK, "SKILL.md")).read()
     T("hygiene", "SKILL.md has name + description frontmatter", sm.startswith("---") and "name: spec-mockup-design" in sm and "description:" in sm.split("---")[1])

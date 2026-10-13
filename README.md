@@ -26,15 +26,30 @@ All four were produced by free opencode models following this skill. Open the [l
 
 ## Install
 
+One command. It downloads the skill and lets you choose which agents get it (agents found on your machine are pre-selected):
+
 ```bash
-git clone https://github.com/lunanoir21/spec-mockup-design ~/.agents/skills/spec-mockup-design
-bash ~/.agents/skills/spec-mockup-design/scripts/install-everywhere.sh
+curl -fsSL https://raw.githubusercontent.com/lunanoir21/spec-mockup-design/main/install.sh | bash
 ```
 
-`install-everywhere.sh` symlinks the skill into every agent's skills folder it finds (`~/.claude/skills`, `~/.codex/skills`,
-`~/.config/opencode/skills`, `~/.gemini/skills`, `~/.cursor/skills`, `~/.kiro/skills`, `~/.qwen/skills` and more). It is
-idempotent and never overwrites or deletes (`--dry-run` shows what it would do). For an agent that has no skills folder, add one line to its
-instructions file (`AGENTS.md`, `GEMINI.md`, ...):
+```text
+spec-mockup-design  install for
+Detected agents are pre-selected. Type numbers to toggle, a = all, d = detected, n = none, Enter = go, q = quit.
+   1) [x] Claude Code        installed
+   2) [x] Codex CLI
+   3) [x] opencode
+   4) [ ] Gemini CLI
+   ...
+> 
+```
+
+Non-interactive: `bash install.sh --detected --yes`, `--agents claude,codex,opencode --yes`, `--all`, `--list`, `--dry-run`,
+`--instructions` (also adds a one-line pointer to `AGENTS.md`/`GEMINI.md`), `--copy` (copy instead of symlink),
+`--uninstall` (removes only the links it made). It never overwrites an existing entry. Supported: Claude Code, Codex, opencode,
+Gemini CLI, Antigravity, Cursor, Kiro, Qwen Code, zcode, pi, Qoder, Grok CLI, Hermes, jcode. Update later with `git -C ~/.agents/skills/spec-mockup-design pull`.
+
+Manual install: `git clone https://github.com/lunanoir21/spec-mockup-design ~/.agents/skills/spec-mockup-design && bash ~/.agents/skills/spec-mockup-design/install.sh`.
+For an agent that has no skills folder, add one line to its instructions file (`AGENTS.md`, `GEMINI.md`, ...):
 
 > For any request to design or mock up a UI, load `~/.agents/skills/spec-mockup-design/SKILL.md` first and follow it.
 
@@ -42,8 +57,16 @@ Requirements: Python 3.8+ (stdlib only), Chromium or Chrome for screenshots (opt
 
 ## Use
 
-Just ask your agent for a design: "design a CPU temperature widget for my status bar", "give me 3 options for a settings page".
-The skill triggers on its own. The agent runs a short script sequence (the "quick path" in `SKILL.md`):
+Just ask your agent for a design. The skill triggers on its own. Prompts that work well (more in [docs/PROMPTS.md](docs/PROMPTS.md)):
+
+- `Design a CPU temperature widget for my status bar. Show idle, warning and critical states.`
+- `Give me 3 options for a settings page that differ in structure, not just color.`
+- `Design a new "Disk" page for the app in ~/projects/monitor. Read its source, reuse its real colors and timings, do not modify it.`
+- `I only want ONE restrained direction. Neutral, no neon, no gradients.`
+- `The first option is closest. Make the hover state clearer and add the error and loading boards.`
+- `The design is approved. Export the tokens as a QML Theme singleton and list the components per board.`
+
+ The agent runs a short script sequence (the "quick path" in `SKILL.md`):
 
 ```bash
 S=~/.agents/skills/spec-mockup-design/scripts
@@ -72,6 +95,7 @@ scrolling page, `#<id>` opens focused on a board.
 | `scripts/new-canvas.py`, `canvasify.py`, `canvas-runtime.js` | The pan/zoom canvas, and a way to add it to any hand-written HTML |
 | `scripts/extract-tokens.py` | Count real colors, durations, easings, radii, fonts in a reference codebase |
 | `scripts/contrast.py` | WCAG contrast pairs and color-blind-safe categorical palette check |
+| `install.sh` | One-command installer with an agent picker (also `scripts/install-everywhere.sh`) |
 | `scripts/shoot.sh`, `check-done.py` | Headless screenshots and the delivery receipt |
 | `tests/selftest.py`, `tests/grade-run.py` | 85-test battery for the scripts; a grader for an agent run |
 | `examples/` | A worked example canvas |

@@ -40,6 +40,10 @@ a{color:var(--accent)}
 .tabs button:focus-visible,.btn:focus-visible,.copy:focus-visible,.lang button:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
 .dbar{display:flex;justify-content:space-between;gap:10px;padding-block:8px;font-size:14px;color:var(--muted);flex-wrap:wrap}
 #frame{width:100%;height:76vh;min-height:520px;border:1px solid var(--line);border-radius:12px;background:#0f1211}
+.prompts{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:12px}
+.pr{font:inherit;font-size:15px;text-align:left;color:var(--fg);background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:14px 16px;cursor:pointer;line-height:1.5;min-width:0;position:relative}
+.pr:hover{border-color:var(--accent)} .pr.ok::after{content:"Copied";position:absolute;right:10px;top:8px;font-size:12px;color:var(--accent)}
+.pr:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
 .steps{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:14px;counter-reset:s}
 .steps>div{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:16px;min-width:0}
 .steps p{color:var(--muted);font-size:15px}
@@ -53,7 +57,7 @@ html[data-lang=en] .tr, html[data-lang=tr] .en{display:none!important}
 <main>
 <div class="top">
   <strong class="mono">spec-mockup-design</strong>
-  <nav><a href="#demo"><span class="en">Live demo</span><span class="tr">Canlı demo</span></a><a href="#how"><span class="en">How it works</span><span class="tr">Nasıl çalışır</span></a><a href="#install"><span class="en">Install</span><span class="tr">Kurulum</span></a><a href="https://github.com/lunanoir21/spec-mockup-design">GitHub</a></nav>
+  <nav><a href="#demo"><span class="en">Live demo</span><span class="tr">Canlı demo</span></a><a href="#how"><span class="en">How it works</span><span class="tr">Nasıl çalışır</span></a><a href="#prompts"><span class="en">Prompts</span><span class="tr">İstemler</span></a><a href="#install"><span class="en">Install</span><span class="tr">Kurulum</span></a><a href="https://github.com/lunanoir21/spec-mockup-design">GitHub</a></nav>
   <div class="lang" role="group" aria-label="Language"><button data-l="en" aria-pressed="true">EN</button><button data-l="tr" aria-pressed="false">TR</button></div>
 </div>
 
@@ -77,6 +81,20 @@ html[data-lang=en] .tr, html[data-lang=tr] .en{display:none!important}
   <iframe id="frame" title="Demo canvas" loading="lazy"></iframe>
 </section>
 
+<section id="prompts">
+  <h2><span class="en">Try these prompts</span><span class="tr">Bu istemleri dene</span></h2>
+  <p style="margin-bottom:14px"><span class="en">You never name the skill. Ask for a design and it loads. Click a prompt to copy it.</span><span class="tr">Skill'in adını söylemene gerek yok. Tasarım iste, kendiliğinden yüklenir. Kopyalamak için istemin üstüne tıkla.</span></p>
+  <div class="prompts">
+    <button class="pr" type="button"><span class="en">Design a CPU temperature widget for my status bar. Show idle, warning and critical states.</span><span class="tr">Hyprland üst barım için CPU sıcaklığı ve fan hızını gösteren bir widget tasarla. Boşta, uyarı ve kritik durumlarını göster.</span></button>
+    <button class="pr" type="button"><span class="en">Give me 3 options for a settings page that differ in structure, not just color.</span><span class="tr">Ayarlar sayfası için yapıca birbirinden farklı 3 seçenek ver, sadece renkte değil.</span></button>
+    <button class="pr" type="button"><span class="en">Design a new "Disk" page for the app in ~/projects/monitor. Read its source, reuse its real colors and timings, do not modify it.</span><span class="tr">~/projeler/monitor uygulamasına yeni bir Disk sayfası tasarla. Kaynağını oku, gerçek renk ve süreleri kullan, hiçbir dosyayı değiştirme.</span></button>
+    <button class="pr" type="button"><span class="en">I only want ONE restrained direction. Neutral, no neon, no gradients.</span><span class="tr">Sadece TEK bir sakin yön istiyorum. Nötr, neon ve gradyan yok.</span></button>
+    <button class="pr" type="button"><span class="en">The first option is closest. Make the hover state clearer and add the error and loading boards.</span><span class="tr">İlk seçenek en yakını. Hover durumunu netleştir, hata ve yükleniyor tahtalarını ekle.</span></button>
+    <button class="pr" type="button"><span class="en">The design is approved. Export the tokens as a QML Theme singleton and list the components per board.</span><span class="tr">Tasarım onaylandı. Tokenları QML Theme singleton olarak aktar ve tahta başına bileşenleri listele.</span></button>
+  </div>
+  <p style="margin-top:12px"><a href="https://github.com/lunanoir21/spec-mockup-design/blob/main/docs/PROMPTS.md"><span class="en">19 more prompts</span><span class="tr">19 istem daha</span></a></p>
+</section>
+
 <section id="how">
   <h2><span class="en">How it works</span><span class="tr">Nasıl çalışır</span></h2>
   <div class="steps">
@@ -91,9 +109,8 @@ html[data-lang=en] .tr, html[data-lang=tr] .en{display:none!important}
 
 <section id="install">
   <h2><span class="en">Install</span><span class="tr">Kurulum</span></h2>
-  <div class="code" id="c1"><button class="copy" data-t="c1">Copy</button>git clone https://github.com/lunanoir21/spec-mockup-design ~/.agents/skills/spec-mockup-design
-bash ~/.agents/skills/spec-mockup-design/scripts/install-everywhere.sh</div>
-  <p style="margin-top:12px;color:var(--muted)"><span class="en">Links the skill into Claude Code, Codex, opencode, Gemini, Cursor, Kiro, Qwen and more. Never overwrites or deletes. Needs Python 3.8+ and, for screenshots, Chromium.</span><span class="tr">Skill'i Claude Code, Codex, opencode, Gemini, Cursor, Kiro, Qwen ve diğerlerine bağlar. Hiçbir şeyin üstüne yazmaz, silmez. Python 3.8+ ve ekran görüntüleri için Chromium gerekir.</span></p>
+  <div class="code" id="c1"><button class="copy" data-t="c1">Copy</button>curl -fsSL https://raw.githubusercontent.com/lunanoir21/spec-mockup-design/main/install.sh | bash</div>
+  <p style="margin-top:12px;color:var(--muted)"><span class="en">Downloads the skill, then shows a picker: agents found on your machine are pre-selected, type numbers to toggle. Works for Claude Code, Codex, opencode, Gemini, Antigravity, Cursor, Kiro, Qwen and more. Never overwrites or deletes. Flags: <code>--detected --yes</code>, <code>--agents claude,codex</code>, <code>--list</code>, <code>--dry-run</code>, <code>--instructions</code>, <code>--uninstall</code>.</span><span class="tr">Skill'i indirir, sonra bir seçici gösterir: makinendeki ajanlar önceden seçili, numara yazarak aç/kapat. Claude Code, Codex, opencode, Gemini, Antigravity, Cursor, Kiro, Qwen ve diğerleri. Hiçbir şeyin üstüne yazmaz, silmez. Bayraklar: <code>--detected --yes</code>, <code>--agents claude,codex</code>, <code>--list</code>, <code>--dry-run</code>, <code>--instructions</code>, <code>--uninstall</code>.</span></p>
 </section>
 
 <section id="tools">
@@ -103,6 +120,7 @@ bash ~/.agents/skills/spec-mockup-design/scripts/install-everywhere.sh</div>
     <tr><td><code>slop-lint.py</code></td><td><span class="en">0-100 slop score with the reason for every flag.</span><span class="tr">Her uyarının nedeniyle 0-100 slop puanı.</span></td></tr>
     <tr><td><code>new-canvas.py</code></td><td><span class="en">Scaffolds the pan and zoom canvas. <code>canvasify.py</code> adds it to any hand-written HTML.</span><span class="tr">Gezilebilir canvas iskeleti kurar. <code>canvasify.py</code> elle yazılmış her HTML'e ekler.</span></td></tr>
     <tr><td><code>extract-tokens.py</code></td><td><span class="en">Counts real colors, durations, easings and fonts in your codebase.</span><span class="tr">Kod tabanındaki gerçek renk, süre, easing ve fontları sayar.</span></td></tr>
+    <tr><td><code>install.sh</code></td><td><span class="en">One-command installer with an agent picker.</span><span class="tr">Ajan seçicili tek komutlu kurulum.</span></td></tr>
     <tr><td><code>shoot.sh</code> <code>check-done.py</code></td><td><span class="en">Headless screenshots of every board and a delivery receipt.</span><span class="tr">Her tahtanın ekran görüntüsü ve teslim fişi.</span></td></tr>
     <tr><td><code>tests/</code></td><td><span class="en">85-test self-test and a grader for agent runs.</span><span class="tr">85 testlik öz-test ve ajan koşuları için notlayıcı.</span></td></tr>
   </tbody></table></div>
@@ -120,6 +138,7 @@ bash ~/.agents/skills/spec-mockup-design/scripts/install-everywhere.sh</div>
  function show(t){tabs.forEach(function(b){b.setAttribute('aria-selected',b===t)});f.src=t.dataset.src;o.href=t.dataset.src;n.textContent=t.dataset.n}
  tabs.forEach(function(b,i){b.onclick=function(){show(b)};b.onkeydown=function(e){var j=e.key==='ArrowRight'?i+1:e.key==='ArrowLeft'?i-1:-1;if(j>=0&&tabs[j]){tabs[j].focus();show(tabs[j])}}});
  show(tabs[0]);
+ document.querySelectorAll('.pr').forEach(function(b){b.onclick=function(){var t=b.querySelector(root.dataset.lang==='tr'?'.tr':'.en').textContent.trim();function ok(){b.classList.add('ok');setTimeout(function(){b.classList.remove('ok')},1500)}if(navigator.clipboard&&navigator.clipboard.writeText)navigator.clipboard.writeText(t).then(ok,function(){});else ok()}});
  document.querySelectorAll('.copy').forEach(function(b){b.onclick=function(){var el=document.getElementById(b.dataset.t),txt=el.innerText.replace(/^Copy\s*/,'');
   function done(){b.textContent='Copied';setTimeout(function(){b.textContent='Copy'},1500)}
   if(navigator.clipboard&&navigator.clipboard.writeText){navigator.clipboard.writeText(txt).then(done,function(){var r=document.createRange();r.selectNodeContents(el);var s=getSelection();s.removeAllRanges();s.addRange(r)})}}});

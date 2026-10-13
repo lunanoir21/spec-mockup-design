@@ -25,15 +25,19 @@ Dördü de bu skill'i izleyen ücretsiz opencode modelleriyle üretildi. [Canlı
 
 ## Kurulum
 
+Tek komut. Skill'i indirir ve hangi ajanlara kurulacağını seçtirir (makinende bulunan ajanlar önceden seçili gelir):
+
 ```bash
-git clone https://github.com/lunanoir21/spec-mockup-design ~/.agents/skills/spec-mockup-design
-bash ~/.agents/skills/spec-mockup-design/scripts/install-everywhere.sh
+curl -fsSL https://raw.githubusercontent.com/lunanoir21/spec-mockup-design/main/install.sh | bash
 ```
 
-`install-everywhere.sh` bulduğu her ajanın skills klasörüne bağlantı koyar (`~/.claude/skills`, `~/.codex/skills`,
-`~/.config/opencode/skills`, `~/.gemini/skills`, `~/.cursor/skills`, `~/.kiro/skills`, `~/.qwen/skills` ve diğerleri). Tekrar
-çalıştırmak zararsızdır, hiçbir şeyin üstüne yazmaz, silmez (`--dry-run` ne yapacağını gösterir). Skills klasörü olmayan bir
-ajan için talimat dosyasına (`AGENTS.md`, `GEMINI.md`...) şu satırı ekle:
+Menüde numara yazarak aç/kapat, `a` hepsi, `d` bulunanlar, `n` hiçbiri, Enter başlat, `q` çık.
+Etkileşimsiz: `bash install.sh --detected --yes`, `--agents claude,codex,opencode --yes`, `--all`, `--list`, `--dry-run`,
+`--instructions` (`AGENTS.md`/`GEMINI.md` dosyasına tek satırlık yönlendirme de ekler), `--copy` (bağlantı yerine kopya),
+`--uninstall` (yalnızca kendi koyduğu bağlantıları kaldırır). Var olan hiçbir şeyin üstüne yazmaz. Desteklenenler: Claude Code, Codex, opencode,
+Gemini CLI, Antigravity, Cursor, Kiro, Qwen Code, zcode, pi, Qoder, Grok CLI, Hermes, jcode. Güncellemek için `git -C ~/.agents/skills/spec-mockup-design pull`.
+
+Skills klasörü olmayan bir ajan için talimat dosyasına (`AGENTS.md`, `GEMINI.md`...) şu satırı ekle:
 
 > Arayüz tasarımı veya mockup istendiğinde önce `~/.agents/skills/spec-mockup-design/SKILL.md` dosyasını yükle ve uygula.
 
@@ -41,7 +45,16 @@ Gereksinimler: Python 3.8+ (yalnızca standart kütüphane), ekran görüntüler
 
 ## Kullanım
 
-Ajanına tasarım iste: "durum çubuğum için CPU sıcaklığı widget'ı tasarla", "ayarlar sayfası için 3 seçenek göster". Skill kendiliğinden devreye girer.
+Ajanına tasarım iste, skill kendiliğinden devreye girer. İyi çalışan istemler ([docs/PROMPTS.md](docs/PROMPTS.md) içinde daha fazlası):
+
+- `Hyprland üst barım için CPU sıcaklığı ve fan hızını gösteren bir widget tasarla. Boşta, uyarı ve kritik durumlarını göster.`
+- `Kitap takip uygulaması için ana ekrana 3 seçenek tasarla. Seçenekler yapıca farklı olsun, sadece renkte değil.`
+- `~/projeler/blackbox uygulamasına yeni bir Disk sayfası tasarla. Kaynağını oku, gerçek renk ve süreleri kullan, o klasörde hiçbir dosyayı değiştirme.`
+- `Sadece TEK bir sakin yön istiyorum, seçenek yok. Nötr, neon ve gradyan yok.`
+- `İlk seçenek en yakını. Hover durumunu netleştir, hata ve yükleniyor tahtalarını ekle.`
+- `Tasarım onaylandı. Tokenları QML Theme singleton olarak aktar ve tahta başına bileşenleri listele.`
+
+
 Ajan kısa bir script dizisi çalıştırır (`SKILL.md`'deki "quick path"): `palette.py`, `scales.py`, `new-canvas.py`, `slop-lint.py`, `shoot.sh`, `check-done.py`.
 
 Canvas'ta gezinme: arka planı **sürükle**, **Ctrl+tekerlek** veya sıkıştır ile yakınlaş, **çift tık** hepsini sığdırır,
