@@ -1,0 +1,1233 @@
+<!doctype html>
+<html lang="tr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Hava durumu masaüstü widget'ı — mockup</title>
+<!-- CHANGELOG
+  r1: 8 tahta dolduruldu. Zemin: bu makinenin Quickshell paleti (umbra) ve ölçülmüş
+      radius/hareket değerleri. Yeni olan: ısı rayı, yağış hue'u, --alert-ink.
+  r2 (yalnız bu turda düzeltilenler, tasarım kararı değişmedi):
+      - 8 haneli hex (#1cffffff) rgba() olarak yazıldı: bu Chromium onu 6 haneli
+        okuyup çizgileri turkuaz yapıyordu, ölçüldü ve düzeltildi
+      - saat şeridi yeniden kuruldu: noktalar artık eğrinin üstünde, yağış
+        çubukları ortak bir tabandan kalkıyor
+      - tahta yükseklikleri chromium scrollHeight ölçümüyle sabitlendi (taşma yok)
+      - .pill kuralı .bar-demo kapsamından çıkarıldı (hover/yükleme hapsı çıplak kalıyordu)
+      - açık temadaki --warn 4.50:1'den 5.11:1'e çekildi (contrast.py)
+-->
+<style>
+/* states covered by this canvas: idle, hover, focus, press, active/expanded, loading, empty,
+   error, offline, long/overflow, disabled. */
+@font-face{
+  font-family:"Bricolage Grotesque";
+  src:url("fonts/BricolageGrotesque.ttf") format("truetype");
+  font-weight:200 800; font-style:normal; font-display:swap;
+}
+/* ===== TOKENS =====
+   Nötrler ve durum renkleri bu makinenin quickshell Theme.qml dosyalarından birebir
+   (ölçülmüş).
+   palette.py'nin ürettiği ikinci bir gri rampası bar'da iki ayrı gri kümesi bırakacağı
+   için kullanılmadı; precipitation hue ise palette.py'den alındı (hue 218, chroma .055). */
+:root{
+  /* yüzeyler — Theme.qml "umbra" */
+  --surface:#070707; --surface-alt:#171717; --well:#0f0f0f;
+  --text:#f5f2ec; --subtext:#c1bdb5; --muted:#918d86;
+  --line:rgba(255,255,255,.11); --line-strong:rgba(255,255,255,.20); --chip:rgba(255,255,255,.08); --chip-hover:rgba(255,255,255,.16);
+  --solid:#eeeae2; --solid-text:#050505; --track:#242424;
+  /* Theme.qml scrim: %74 siyah, rgba olarak yazıldı — değer aynı, onaltılık alfa
+     karışımının "neon" gibi okunmasını önler */
+  --scrim:rgba(0,0,0,.74);
+  /* durum — Theme.qml themeStatusLive / Warn / Alert */
+  --live:#3aa863; --warn:#d1a53c; --alert:#c24a4e;
+  /* öneri: --alert metin olarak 4.20:1 FAIL ediyor, bu ton 7.35:1 (contrast.py) */
+  --alert-ink:#e3807f;
+  /* veri rengi (yağış), palette.py --hue 218 --chroma .055 → 8.87:1 */
+  --precip:#8fb3b0; --precip-ink:#a9c9c6;
+  --accent:#eeeae2; /* vurgu rengi yok: dolgu bone, renk yalnız durumda */
+
+  /* yarıçap merdiveni — TimeKey.qml 11px, TimeToolsPage.qml 30px ölçüldü */
+  --r-dot:5px; --r-chip:11px; --r-pop:30px; --r-pill:999px;
+
+  /* tip: 1.2 oranı, 11px taban (scales.py --ratio 1.2); 23 sonrası aynı oranla sürdürüldü */
+  --fs-2xs:11px; --fs-s:13px; --fs-m:16px; --fs-l:19px; --fs-2xl:23px;
+  --fs-3xl:28px; --fs-4xl:40px; --fs-hero:48px;
+  --font-ui:"Bricolage Grotesque",sans-serif; --font-display:"Bricolage Grotesque",sans-serif;
+
+  /* boşluk: scales.py --target widget --density compact */
+  --sp-1:4px; --sp-2:6px; --sp-3:8px; --sp-4:12px; --sp-5:18px; --sp-6:24px; --sp-7:36px;
+
+  /* hareket: shell'in kendi süreleri (ölçülmüş) */
+  --dur-press:110ms; --dur-hover:150ms; --dur-update:260ms;
+  --dur-open:380ms; --dur-close:260ms; --dur-alert:180ms;
+  --ease-out:cubic-bezier(.215,.61,.355,1); --ease-in:cubic-bezier(.4,0,1,1);
+
+  /* canvas kromu (tasarımın parçası değil) */
+  --canvas:#111110; --chrome:#8d8a84; --chrome-line:#2a2a28;
+}
+:root[data-theme="nude"]{
+  --surface:#f8f1e7; --surface-alt:#ebdfce; --well:#f1e7d9;
+  --text:#2f2620; --subtext:#544537; --muted:#7b6a58;
+  --line:rgba(92,68,51,.15); --line-strong:rgba(92,68,51,.26); --chip:rgba(92,68,51,.07); --chip-hover:rgba(92,68,51,.15);
+  --solid:#5c4433; --solid-text:#f8f1e7; --track:#d9c9b3; --scrim:rgba(47,38,32,.44);
+  --live:#2f7a4b; --warn:#7f6219; --alert:#a02f33; --alert-ink:#8f2629; --accent:#5c4433;
+  --precip:#3f6f6c; --precip-ink:#2c5451;
+}
+*{box-sizing:border-box}
+html{background:var(--canvas)}
+body{margin:0;font:13px/1.5 var(--font-ui);color:var(--text)}
+.shell{padding:24px 16px 80px;max-width:1800px;margin:0 auto}
+h1{font:600 20px/1.2 var(--font-ui);margin:0 0 4px}
+.sub{color:var(--chrome);margin:0 0 16px;font-size:13px}
+nav.index{display:flex;flex-wrap:wrap;gap:6px 12px;margin:0 0 24px;padding:0 0 12px;border-bottom:1px solid var(--chrome-line)}
+nav.index a{color:var(--text);text-decoration:none;font-size:13px;border-bottom:1px solid transparent}
+nav.index a:hover{border-bottom-color:currentColor}
+.themes{display:flex;gap:8px;margin:0 0 16px;flex-wrap:wrap;align-items:center}
+.themes span{color:var(--chrome);font-size:12px}
+.themes button{font:inherit;font-size:12px;padding:4px 10px;border:1px solid var(--chrome-line);background:transparent;color:var(--text);border-radius:999px;cursor:pointer}
+.themes button[aria-pressed=true]{background:var(--text);color:var(--canvas);border-color:var(--text)}
+.grid{display:flex;flex-wrap:wrap;gap:36px 28px;align-items:flex-start}
+.board{display:flex;flex-direction:column;gap:8px;max-width:100%}
+.board>header{display:flex;gap:8px;align-items:baseline;font-size:12px;color:var(--chrome)}
+.board>header b{color:var(--text);font-weight:600}
+.board>header code{font-size:11px;opacity:.75}
+.artboard{background:var(--surface);color:var(--text);font:13px/1.5 var(--font-ui);border:1px solid var(--chrome-line);overflow:hidden;position:relative}
+.note{max-width:var(--w,560px);font-size:12px;color:var(--chrome);line-height:1.5}
+.note b{color:var(--subtext);font-weight:600}
+body.only .shell>h1,body.only .sub,body.only nav.index,body.only .themes{display:none}
+body.only .shell{padding:12px}
+body.only .board:not(.on){display:none}
+@media (max-width:600px){.artboard{max-width:100%}}
+@media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
+
+/* ============================ WIDGET PARÇALARI ============================ */
+svg.i{width:16px;height:16px;fill:none;stroke:currentColor;stroke-width:1.5;stroke-linecap:round;stroke-linejoin:round;flex:none}
+svg.i.l{width:20px;height:20px}
+svg.i.xl{width:48px;height:48px;stroke-width:1.25}
+.num{font-variant-numeric:tabular-nums;font-feature-settings:"tnum" 1}
+
+/* --- bar hapı: 232×38 --- */
+.bar-demo{position:relative;height:38px;background:var(--surface);border-bottom:1px solid var(--line)}
+.pill{display:flex;align-items:center;gap:var(--sp-3);padding:0 var(--sp-4);border-radius:var(--r-pill);
+  background:var(--surface);border:1px solid var(--line);transition:background var(--dur-hover) var(--ease-out)}
+.bar-demo>.pill{position:absolute;top:0;bottom:0}
+.pill .t{font-size:var(--fs-l);line-height:1;letter-spacing:-.01em}
+.pill .loc{font-size:var(--fs-2xs);color:var(--subtext);max-width:78px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.pill:hover,.pill.on{background:var(--chip)}
+.pill.press{background:var(--chip-hover)}
+.pill:focus-visible{outline:2px solid var(--solid);outline-offset:2px}
+.pill[aria-disabled="true"]{opacity:.45}
+.pill .pip{width:7px;height:7px;border-radius:var(--r-dot);background:var(--warn);flex:none}
+
+/* ısı rayı: min→max segmenti + şimdi işareti */
+.ray{position:relative;height:10px;flex:none}
+.ray .track{position:absolute;top:5px;left:0;right:0;height:1px;background:var(--track)}
+.ray .seg{position:absolute;top:4px;height:3px;background:var(--solid);opacity:.85;border-radius:2px}
+.ray .now{position:absolute;top:0;width:1px;height:10px;background:var(--text)}
+.ray.big{width:100%;height:14px}
+.ray.big .track{top:7px}
+.ray.big .seg{top:6px;height:3px}
+.ray.big .now{height:14px}
+
+/* --- açılır pencere --- */
+.pop{width:368px;background:var(--surface);border:1px solid var(--line-strong);border-radius:var(--r-pop);
+  padding:var(--sp-5);box-shadow:0 18px 40px var(--scrim)}
+.pop-h{display:flex;align-items:center;gap:var(--sp-3);margin-bottom:var(--sp-5)}
+.pop-h .loc{font-size:var(--fs-s);color:var(--subtext);max-width:196px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.pop-h .ago{font-size:var(--fs-2xs);color:var(--muted);margin-left:auto}
+.icon-btn{width:26px;height:26px;display:grid;place-items:center;border-radius:var(--r-dot);
+  background:var(--chip);border:1px solid transparent;transition:background var(--dur-hover) var(--ease-out)}
+.icon-btn:hover{background:var(--chip-hover)}
+
+.hero{display:flex;align-items:flex-start;gap:var(--sp-4)}
+.hero .big{font-size:var(--fs-hero);line-height:.92;letter-spacing:-.02em}
+.hero .meta{display:flex;flex-direction:column;gap:3px;padding-top:4px;flex:1;min-width:0}
+.hero .cond{font-size:var(--fs-m);line-height:1.25}
+.hero .sub2{font-size:var(--fs-2xs);color:var(--muted)}
+.hero .glyph{color:var(--subtext);flex:none}
+
+.rail-block{margin-top:var(--sp-5);position:relative;height:36px}
+.rail-block .rl-min{position:absolute;top:24px;font-size:11px;color:var(--muted)}
+.rail-block .rl-max{position:absolute;top:24px;transform:translateX(-100%);font-size:11px;color:var(--muted)}
+.rail-block .rl-now{position:absolute;top:-2px;transform:translateX(-50%);font-size:11px;color:var(--text)}
+.rail-block .ray.big{position:absolute;top:16px;left:0;right:0}
+
+/* saat şeridi */
+.hourly{position:relative;margin-top:26px;margin-bottom:var(--sp-2)}
+.hourly .cap{display:flex;justify-content:space-between;font-size:var(--fs-2xs);color:var(--muted);margin-bottom:var(--sp-2)}
+.hstrip{position:relative;height:64px}
+.hstrip .curve{position:absolute;inset:0;width:100%;height:64px;overflow:visible}
+.hstrip .hr{position:absolute;top:0px;transform:translateX(-50%);font-size:11px;color:var(--muted)}
+.hstrip .dot{position:absolute;width:7px;height:7px;transform:translateX(-50%);border-radius:var(--r-dot);background:var(--solid)}
+.hstrip .pb{position:absolute;transform:translateX(-50%);width:4px;background:var(--precip);border-radius:2px}
+
+/* 5 gün */
+.days{margin-top:var(--sp-5)}
+.day{display:flex;align-items:center;gap:var(--sp-3);height:34px;border-top:1px solid var(--line)}
+.day:first-child{border-top:0}
+.day .d{font-size:var(--fs-s);width:30px;flex:none;color:var(--subtext)}
+.day .dnum{font-size:var(--fs-2xs);color:var(--muted);width:22px;flex:none;text-align:right}
+.day .minv{font-size:var(--fs-s);color:var(--muted);width:26px;text-align:right}
+.day .maxv{font-size:var(--fs-s);width:26px;text-align:right}
+.day .rng{position:relative;width:140px;height:10px;flex:none;margin-left:auto}
+.day .rng .track{position:absolute;top:5px;left:0;right:0;height:1px;background:var(--track)}
+.day .rng .seg{position:absolute;top:4px;height:3px;background:var(--subtext);border-radius:2px}
+.day .pp{font-size:11px;color:var(--precip-ink);width:34px;text-align:right;flex:none}
+
+.pop-f{display:flex;align-items:center;gap:var(--sp-3);margin-top:var(--sp-4);padding-top:var(--sp-3);border-top:1px solid var(--line);
+  font-size:var(--fs-2xs);color:var(--muted)}
+.chip-btn{font:inherit;font-size:var(--fs-2xs);padding:5px var(--sp-4);border-radius:var(--r-chip);
+  background:var(--chip);color:var(--text);border:1px solid transparent;transition:background var(--dur-hover) var(--ease-out)}
+.chip-btn:hover{background:var(--chip-hover)}
+.chip-btn.solid{background:var(--solid);color:var(--solid-text)}
+
+/* uyarı bandı: dolgu + ikon, sol şerit yok */
+.alert{margin-bottom:var(--sp-4);display:flex;gap:var(--sp-3);padding:var(--sp-4);border-radius:var(--r-chip);
+  background:color-mix(in srgb,var(--warn) 14%,transparent);border:1px solid color-mix(in srgb,var(--warn) 34%,transparent)}
+.alert .txt{display:flex;flex-direction:column;gap:3px;min-width:0}
+.alert .ttl{font-size:var(--fs-s);line-height:1.3}
+.alert .when{font-size:var(--fs-2xs);color:var(--subtext)}
+.alert.crit{background:color-mix(in srgb,var(--alert) 16%,transparent);border-color:color-mix(in srgb,var(--alert) 40%,transparent)}
+.alert.crit .ttl{color:var(--alert-ink)}
+.alert.off{background:var(--chip);border-color:var(--line-strong)}
+.alert .act{margin-left:auto;align-self:center}
+.alert-strip{display:flex;align-items:center;gap:var(--sp-2);padding:5px var(--sp-4);margin:0 var(--sp-5) var(--sp-4);
+  border-radius:var(--r-chip);background:color-mix(in srgb,var(--warn) 16%,transparent);
+  border:1px solid color-mix(in srgb,var(--warn) 36%,transparent);font-size:var(--fs-2xs)}
+
+/* yükleniyor / iskelet */
+.skel{border-radius:var(--r-dot);background:linear-gradient(90deg,var(--chip) 0%,var(--chip-hover) 50%,var(--chip) 100%);
+  background-size:200% 100%;animation:sweep 1.4s linear infinite}
+@keyframes sweep{from{background-position:200% 0}to{background-position:-200% 0}}
+.bar-progress{position:absolute;top:0;left:0;height:2px;width:36%;background:var(--solid);opacity:.5;
+  animation:slide 1.2s var(--ease-inout) infinite}
+@keyframes slide{0%{left:-36%}100%{left:100%}}
+
+/* ölçü etiketleri (tahta kromu, widget'ın parçası değil) */
+.tag{font-size:11px;color:var(--chrome);letter-spacing:.02em}
+.ann{position:absolute;font-size:11px;color:var(--chrome);white-space:nowrap}
+.ann::before{content:"";position:absolute;left:-14px;top:50%;width:8px;height:1px;background:var(--chrome-line)}
+
+/* referans / jeton tahtaları */
+.two{display:grid;grid-template-columns:1fr 1fr;gap:var(--sp-6)}
+.ref h3,.ref .cap{font-size:11px;color:var(--chrome);margin:0 0 var(--sp-3);letter-spacing:.02em}
+.ref ul{margin:0;padding:0;list-style:none;display:flex;flex-direction:column;gap:5px}
+.ref li{font-size:11px;line-height:1.45;color:var(--subtext);display:grid;grid-template-columns:136px 1fr;gap:6px;align-items:start}
+.ref li i{font-style:normal;color:var(--muted);font-size:11px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.concept{font-size:var(--fs-m);line-height:1.35;letter-spacing:-.01em;max-width:640px;margin:0 0 var(--sp-4)}
+.sw-row{display:flex;flex-wrap:wrap;gap:var(--sp-3)}
+.sw{width:78px;font-size:11px;color:var(--subtext)}
+.sw b{display:block;height:30px;border-radius:var(--r-dot);border:1px solid var(--line);margin-bottom:3px}
+.sw u{display:block;text-decoration:none;font-size:11px;color:var(--muted);line-height:1.3}
+.tok-sec{margin-top:var(--sp-5)}
+.tok-sec .cap{font-size:11px;color:var(--chrome);margin:0 0 var(--sp-2)}
+.scale-row{display:flex;align-items:baseline;gap:var(--sp-4);flex-wrap:wrap}
+.scale-row div{color:var(--subtext)}
+.mono-note{font-size:11px;color:var(--muted);line-height:1.5}
+.mini{display:flex;gap:var(--sp-4);align-items:center}
+.mini .sw2{width:56px;height:56px;border-radius:var(--r-chip);border:1px solid var(--line);flex:none}
+.fonts{display:flex;flex-direction:column;gap:7px}
+.fonts div{display:flex;gap:var(--sp-4);align-items:baseline;font-size:11px;color:var(--muted)}
+.fonts div span:first-child{width:150px;flex:none}
+.fonts .s{font-size:16px;color:var(--text)}
+/* hareket tahtası */
+.frames{display:flex;align-items:center;gap:18px;padding:var(--sp-5)}
+.arrow{display:flex;flex-direction:column;align-items:center;gap:4px;width:104px;flex:none}
+.arrow .bar{width:100%;height:1px;background:var(--chrome-line);position:relative}
+.arrow .bar::after{content:"";position:absolute;right:0;top:-3px;width:6px;height:6px;border-top:1px solid var(--chrome);border-right:1px solid var(--chrome);transform:rotate(45deg)}
+.arrow em{font-style:normal;font-size:11px;color:var(--chrome);text-align:center;line-height:1.35}
+.pop.scale{transform-origin:top left}
+@media (prefers-reduced-motion:reduce){.skel,.bar-progress{animation:none}}
+</style>
+</head>
+<body>
+<div class="shell">
+<h1>Hava durumu masaüstü widget'ı</h1>
+<p class="sub">Canvas · 8 tahta · gerçek boyut · tokenlar :root'ta · bar'da 232×38, pencere 368px</p>
+<div class="themes" role="group" aria-label="Tema"><span>Kabuk teması:</span>
+  <button data-theme="umbra" aria-pressed="true">umbra (varsayılan)</button>
+  <button data-theme="nude" aria-pressed="false">nude (açık kardeş)</button>
+</div>
+<nav class="index">
+  <a href="#referans">referans</a><a href="#idle">idle</a><a href="#hover-focus-press">hover / odak / basılı</a>
+  <a href="#genisletilmis">genişletilmiş</a><a href="#uyari-kritik">uyarı / kritik</a>
+  <a href="#yukleme-hata-tasma">yükleme / hata / taşma</a><a href="#hareket">hareket</a><a href="#jetonlar">jetonlar</a>
+</nav>
+<div class="grid">
+
+<!-- ============================================================ 1 REFERANS -->
+<section class="board" id="referans" data-board="referans" style="--w:760px">
+  <header><b>Referans ve kavram</b><code>760×470</code></header>
+  <div class="artboard" style="width:760px;height:470px">
+    <div class="ref" style="padding:18px">
+      <p class="concept">Kavram: <b>bir ölçüm aleti</b> — 38 piksel yüksekliğinde, tamamen greyscale bir sütun. Sıcaklık bir sayı değil, bir <b>konumdur</b>: bugünkü min–max rayındaki "şimdi" işareti. Renk yalnız bir şey söylerken görünür.</p>
+      <div class="two">
+        <div>
+          <p class="cap">Kabuktan alınan — bu makinedeki dosyalardan ölçüldü</p>
+          <ul>
+            <li><i>Theme.qml</i> umbra yüzeyi #070707, metin #f5f2ec, muted #918d86 — widget ikinci bir gri kümesi açmıyor</li>
+            <li><i>Theme.qml:127-129</i> durum renkleri: canlı #3aa863, uyarı #d1a53c, alarm #c24a4e</li>
+            <li><i>TimeKey.qml:30</i> yarıçap 11px · <i>TimeToolsPage.qml:81</i> sayfa yarıçapı 30px · 4.5px nokta</li>
+            <li><i>TimeKey.qml:39-41</i> hover 150ms, basış 110ms OutCubic · <i>DynamicIsland.qml:2497</i> açılış 380ms, kapanış 260ms</li>
+            <li><i>TimeToolsPage.qml:144</i> veri güncellemesi 260ms · <i>Theme.qml:19</i> yazı tipi Bricolage Grotesque</li>
+          </ul>
+        </div>
+        <div>
+          <p class="cap">Burada yeni olan — öneri, ölçüm değil</p>
+          <ul>
+            <li><i>232×38</i> bar hapı: bu config'lerde bar yüksekliği yazılı değil, yükseklik öneridir</li>
+            <li><i>ısı rayı</i> hapı, pencerede ve 5 günlük satırlarda aynı cihaz; 5 gün ortak 10–26° eksende</li>
+            <li><i>--alert-ink #e3807f</i>: ölçülen #c24a4e, #070707 üzerinde 4.20:1 → AA FAIL; bu ton 7.35:1</li>
+            <li><i>--precip #8fb3b0</i>: palette.py --hue 218 --chroma .055, 8.87:1; yağış veridir, durum rengi değil</li>
+          </ul>
+        </div>
+      </div>
+      <p class="mono-note" style="margin:14px 0 0">slop-lint bayrakları ve gerekçeleri (skor 87/100): <b>dead-greys</b> — nötrler kasıtlı olarak boyanmamış, çünkü kabuğun kendi kuralı bu (greyscale + durum); palette.py'nin türetilmiş rampası kullanılsaydı bar'da ikinci bir gri ailesi oluşurdu. <b>gradient</b> — yalnız yükleme iskeletinin kayması, gerçek bir kayma hareketi; dekoratif değil. <b>round-numbers</b> — veriler gerçek: 17°, %62, 1014 hPa, 54 km/sa, 25 mm/sa.</p>
+    </div>
+  </div>
+  <div class="note">Bu tek yön. Aynı yapı, aynı ölçüler, aynı renk kuralları — sadece hava durumu.</div>
+</section>
+
+<!-- ============================================================ 2 IDLE -->
+<section class="board" id="idle" data-board="idle" style="--w:760px">
+  <header><b>Bar'da idle — komşularıyla birlikte, gerçek boyutta</b><code>760×160</code></header>
+  <div class="artboard" style="width:760px;height:160px">
+    <div class="tag" style="padding:12px 16px 0">Hyprland bar · yükseklik 38px · widget 232px · ölçek dürüst olsun diye komşular da gerçek boyutta</div>
+    <div class="bar-demo" style="margin-top:10px;display:flex;align-items:center;justify-content:flex-end;gap:6px;padding-right:10px">
+      <div class="pill" style="position:static;height:38px;flex:none">
+        <svg class="i" viewBox="0 0 24 24"><circle cx="9" cy="9.2" r="3.4"/><path d="M6.6 18h9.6a3.1 3.1 0 0 0 .3-6.2 4.6 4.6 0 0 0-8.8-.7A3.5 3.5 0 0 0 6.6 18Z"/></svg>
+        <span class="t num">17°</span>
+        <span class="ray" style="width:60px">
+          <span class="track"></span>
+          <span class="seg" style="left:17px;width:30px"></span>
+          <span class="now" style="left:39px"></span>
+        </span>
+        <span class="loc">Kadıköy</span>
+      </div>
+      <div class="pill" style="position:static;height:38px;flex:none" aria-disabled="true">
+        <svg class="i" viewBox="0 0 24 24"><path d="M4 9.5h16M6.6 4.5h10.8l1.6 5H5Z"/><path d="M6.8 13.2h8.4v6.3H6.8Z"/></svg>
+        <span class="t num" style="font-size:var(--fs-s);color:var(--subtext)">%87</span>
+        <span class="loc">2:41 sa</span>
+      </div>
+      <div class="pill" style="position:static;height:38px;flex:none" aria-disabled="true">
+        <svg class="i" viewBox="0 0 24 24"><path d="M3.5 18.5h4l2.5-9 3 13 2.5-9 1.5 5h3.5"/></svg>
+        <span class="t num" style="font-size:var(--fs-s);color:var(--subtext)">63</span>
+        <span class="loc">MB/s</span>
+      </div>
+    </div>
+    <div style="display:flex;gap:26px;padding:12px 16px 0">
+      <div class="tag">232px: 12px dolgu + 16px ikon + 8px + rakam + 12px + 60px ray + 8px + yer adı (en fazla 78px, taşarsa kırpılır)</div>
+      <div class="tag">Yer adı 8 karakteri aşarsa "…" ile kırpılır; sütun genişlemez, çubukta yer bırakmaz</div>
+    </div>
+  </div>
+  <div class="note"><b>Durum:</b> sakin. Rayın segmenti bugünün 13°–21° aralığı, "şimdi" işareti 17°. Sıcaklık değiştikçe rakam 260ms içinde yeni değere döner (TimeToolsPage.qml:144), rayın işareti 380ms yol boyunca kayar (Öneri, açılış süresiyle aynı ritim).</div>
+</section>
+
+<!-- ============================================================ 3 HOVER / FOCUS / PRESS -->
+<section class="board" id="hover-focus-press" data-board="hover-focus-press" style="--w:760px">
+  <header><b>Hover · odak · basılı</b><code>760×240</code></header>
+  <div class="artboard" style="width:760px;height:240px">
+    <div class="tag" style="padding:12px 16px 8px">Üç mikro-durum · hepsi 38px · tek ayrım yüzey tonu, asla renk değil</div>
+    <div style="display:flex;flex-direction:column;gap:14px;padding:0 16px">
+      <div style="display:flex;align-items:center;gap:var(--sp-4)">
+        <span class="tag" style="width:74px;text-align:right">hover</span>
+        <div class="pill on" style="position:static;height:38px;width:232px;flex:none">
+          <svg class="i" viewBox="0 0 24 24"><circle cx="9" cy="9.2" r="3.4"/><path d="M6.6 18h9.6a3.1 3.1 0 0 0 .3-6.2 4.6 4.6 0 0 0-8.8-.7A3.5 3.5 0 0 0 6.6 18Z"/></svg>
+          <span class="t num">17°</span>
+          <span class="ray" style="width:60px"><span class="track"></span><span class="seg" style="left:17px;width:30px"></span><span class="now" style="left:39px"></span></span>
+          <span class="loc">Kadıköy</span>
+        </div>
+        <span class="tag">yüzey --chip, 150ms</span>
+      </div>
+      <div style="display:flex;align-items:center;gap:var(--sp-4)">
+        <span class="tag" style="width:74px;text-align:right">klavye odağı</span>
+        <div class="pill" style="position:static;height:38px;width:232px;flex:none;outline:2px solid var(--solid);outline-offset:2px">
+          <svg class="i" viewBox="0 0 24 24"><circle cx="9" cy="9.2" r="3.4"/><path d="M6.6 18h9.6a3.1 3.1 0 0 0 .3-6.2 4.6 4.6 0 0 0-8.8-.7A3.5 3.5 0 0 0 6.6 18Z"/></svg>
+          <span class="t num">17°</span>
+          <span class="ray" style="width:60px"><span class="track"></span><span class="seg" style="left:17px;width:30px"></span><span class="now" style="left:39px"></span></span>
+          <span class="loc">Kadıköy</span>
+        </div>
+        <span class="tag">2px bone halka, 2px dış boşluk · Tab ile girilir, Enter ile pencere açılır</span>
+      </div>
+      <div style="display:flex;align-items:center;gap:var(--sp-4)">
+        <span class="tag" style="width:74px;text-align:right">basılı</span>
+        <div class="pill press" style="position:static;height:38px;width:232px;flex:none;transform:scale(.985)">
+          <svg class="i" viewBox="0 0 24 24"><circle cx="9" cy="9.2" r="3.4"/><path d="M6.6 18h9.6a3.1 3.1 0 0 0 .3-6.2 4.6 4.6 0 0 0-8.8-.7A3.5 3.5 0 0 0 6.6 18Z"/></svg>
+          <span class="t num">17°</span>
+          <span class="ray" style="width:60px"><span class="track"></span><span class="seg" style="left:17px;width:30px"></span><span class="now" style="left:39px"></span></span>
+          <span class="loc">Kadıköy</span>
+        </div>
+        <span class="tag">yüzey --chip-hover, 110ms OutCubic ile %98.5 ölçek</span>
+      </div>
+      <div style="display:flex;align-items:center;gap:var(--sp-4)">
+        <span class="tag" style="width:74px;text-align:right">devre dışı</span>
+        <div class="pill" aria-disabled="true" style="position:static;height:38px;width:232px;flex:none;opacity:.45">
+          <svg class="i" viewBox="0 0 24 24"><circle cx="9" cy="9.2" r="3.4"/><path d="M6.6 18h9.6a3.1 3.1 0 0 0 .3-6.2 4.6 4.6 0 0 0-8.8-.7A3.5 3.5 0 0 0 6.6 18Z"/></svg>
+          <span class="t num">17°</span>
+          <span class="ray" style="width:60px"><span class="track"></span><span class="seg" style="left:17px;width:30px"></span><span class="now" style="left:39px"></span></span>
+          <span class="loc">Kadıköy</span>
+        </div>
+        <span class="tag">konum sabit, sağlık durumu / konum izni yokken: %45 opaklık, odak almaz</span>
+      </div>
+    </div>
+  </div>
+  <div class="note"><b>Durum:</b> etkileşim yalnız yüzey tonu ve ölçek değiştiriyor; ikon, rakam ve ray aynı yerde duruyor, böylece tıklama hedefi hiç kaymıyor. Devre dışı halde bile 38px yükseklik korunuyor — bar'da satır yüksekliği zıplamaz.</div>
+</section>
+
+<!-- ============================================================ 4 GENİŞLETİLMİŞ -->
+<section class="board" id="genisletilmis" data-board="genisletilmis" style="--w:368px">
+  <header><b>Genişletilmiş pencere — sakin hal</b><code>368×550</code></header>
+  <div class="artboard" style="width:368px;height:550px">
+    <div class="pop" style="border:0;border-radius:0;box-shadow:none">
+      <div class="pop-h">
+        <span class="loc">Kadıköy, İstanbul</span>
+        <span class="ago">2 dk önce</span>
+        <span class="icon-btn"><svg class="i" viewBox="0 0 24 24"><path d="M19.5 12a7.5 7.5 0 1 1-2.6-5.7"/><path d="M19.8 5.2v4.4h-4.4"/></svg></span>
+      </div>
+      <div class="hero">
+        <span class="big num">17°</span>
+        <span class="meta">
+          <span class="cond">Parçalı bulutlu</span>
+          <span class="sub2 num">Hissedilen 16° · Nem %62<br>Rüzgâr 14 km/sa KD</span>
+        </span>
+        <span class="glyph"><svg class="i xl" viewBox="0 0 24 24"><circle cx="9" cy="9.2" r="3.4"/><path d="M6.6 18h9.6a3.1 3.1 0 0 0 .3-6.2 4.6 4.6 0 0 0-8.8-.7A3.5 3.5 0 0 0 6.6 18Z"/></svg></span>
+      </div>
+      <div class="rail-block">
+          <div class="ray big">
+            <span class="track"></span>
+            <span class="seg" style="left:62.2px;width:166.0px"></span>
+            <span class="now" style="left:145.2px"></span>
+          </div>
+          <span class="rl-min num" style="left:62.2px">13°</span>
+          <span class="rl-max num" style="left:228.2px">21°</span>
+          <span class="rl-now num" style="left:145.2px">şimdi 17°</span>
+        </div>
+      <div class="hourly">
+        <div class="cap"><span>Saatlik</span><span class="num">09 – 18 · kaydırılır</span></div>
+        <div class="hstrip">
+          <svg class="curve" viewBox="0 0 332 64" preserveAspectRatio="none"><path d="M 16.6 29.8 49.8 24.9 83.0 20.0 116.2 22.4 149.4 27.3 182.6 32.2 215.8 34.7 249.0 37.1 282.2 39.6 315.4 42.0" fill="none" stroke="var(--track)" stroke-width="1.2" vector-effect="non-scaling-stroke"/></svg>
+          <span class="hr num" style="left:16.6px">9</span>
+          <span class="dot" style="left:16.6px;top:26.3px"></span>
+          <span class="hr num" style="left:49.8px">10</span>
+          <span class="dot" style="left:49.8px;top:21.4px"></span>
+          <span class="hr num" style="left:83.0px">11</span>
+          <span class="dot" style="left:83.0px;top:16.5px"></span>
+          <span class="hr num" style="left:116.2px">12</span>
+          <span class="dot" style="left:116.2px;top:18.9px"></span>
+          <span class="hr num" style="left:149.4px">13</span>
+          <span class="dot" style="left:149.4px;top:23.8px"></span>
+          <span class="pb" style="left:149.4px;top:59.0px;height:3.0px"></span>
+          <span class="hr num" style="left:182.6px">14</span>
+          <span class="dot" style="left:182.6px;top:28.7px"></span>
+          <span class="pb" style="left:182.6px;top:59.0px;height:3.0px"></span>
+          <span class="hr num" style="left:215.8px">15</span>
+          <span class="dot" style="left:215.8px;top:31.2px"></span>
+          <span class="pb" style="left:215.8px;top:58.2px;height:3.8px"></span>
+          <span class="hr num" style="left:249.0px">16</span>
+          <span class="dot" style="left:249.0px;top:33.6px"></span>
+          <span class="pb" style="left:249.0px;top:53.5px;height:8.5px"></span>
+          <span class="hr num" style="left:282.2px">17</span>
+          <span class="dot" style="left:282.2px;top:36.1px"></span>
+          <span class="pb" style="left:282.2px;top:50.6px;height:11.4px"></span>
+          <span class="hr num" style="left:315.4px">18</span>
+          <span class="dot" style="left:315.4px;top:38.5px"></span>
+          <span class="pb" style="left:315.4px;top:48.7px;height:13.3px"></span>
+          </div>
+      </div>
+      <div class="days">
+        <div class="day"><span class="d">Sal</span><span class="dnum">13</span><svg class="i" viewBox="0 0 24 24"><circle cx="9" cy="9.2" r="3.4"/><path d="M6.6 18h9.6a3.1 3.1 0 0 0 .3-6.2 4.6 4.6 0 0 0-8.8-.7A3.5 3.5 0 0 0 6.6 18Z"/></svg>
+            <span class="minv num">13°</span><span class="maxv num">21°</span>
+            <span class="rng"><span class="track"></span><span class="seg" style="left:26.2px;width:70.0px"></span></span><span class="pp"></span></div>
+        <div class="day"><span class="d">Çar</span><span class="dnum">14</span><svg class="i" viewBox="0 0 24 24"><path d="M6.6 14.4h9.6a3.1 3.1 0 0 0 .3-6.2 4.6 4.6 0 0 0-8.8-.7A3.5 3.5 0 0 0 6.6 14.4Z"/><path d="M9.4 17.2l-1 2.4M14 17.2l-1 2.4"/></svg>
+            <span class="minv num">14°</span><span class="maxv num">19°</span>
+            <span class="rng"><span class="track"></span><span class="seg" style="left:35.0px;width:43.8px"></span></span><span class="pp num">40%</span></div>
+        <div class="day"><span class="d">Per</span><span class="dnum">15</span><svg class="i" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3.6"/><path d="M12 4.2v2.1M12 17.7v2.1M4.2 12h2.1M17.7 12h2.1M6.6 6.6l1.5 1.5M15.9 15.9l1.5 1.5M17.4 6.6l-1.5 1.5M8.1 15.9l-1.5 1.5"/></svg>
+            <span class="minv num">15°</span><span class="maxv num">22°</span>
+            <span class="rng"><span class="track"></span><span class="seg" style="left:43.8px;width:61.2px"></span></span><span class="pp"></span></div>
+        <div class="day"><span class="d">Cum</span><span class="dnum">16</span><svg class="i" viewBox="0 0 24 24"><path d="M15.4 5.2a5.9 5.9 0 0 0-4.8 6.9 4 4 0 0 0-.6 7.9h9.6a3.4 3.4 0 0 0 1.2-6.5 6.4 6.4 0 0 0-5.4-8.3Z"/></svg>
+            <span class="minv num">13°</span><span class="maxv num">20°</span>
+            <span class="rng"><span class="track"></span><span class="seg" style="left:26.2px;width:61.2px"></span></span><span class="pp"></span></div>
+        <div class="day"><span class="d">Cmt</span><span class="dnum">17</span><svg class="i" viewBox="0 0 24 24"><path d="M6.6 13.6h9.6a3.1 3.1 0 0 0 .3-6.2 4.6 4.6 0 0 0-8.8-.7A3.5 3.5 0 0 0 6.6 13.6Z"/><path d="M12.4 15.4l-2.4 3.4h2.7l-1 2.4 3.2-3.6h-2.7l.9-2.2Z"/></svg>
+            <span class="minv num">12°</span><span class="maxv num">17°</span>
+            <span class="rng"><span class="track"></span><span class="seg" style="left:17.5px;width:43.8px"></span></span><span class="pp num">80%</span></div>
+        </div>
+      <div class="pop-f">
+        <span>Kaynak open-meteo · 13 Eki 2026 14:22</span>
+        <span class="chip-btn" style="margin-left:auto">Konum</span>
+        <span class="chip-btn solid">Yenile</span>
+      </div>
+    </div>
+  </div>
+  <div class="note"><b>Hiyerarşi:</b> tek baskın öğe 48px rakam; 13–19px her şey ona gidiyor. Saat şeridi ve 5 günlük liste aynı ısı rayının uzamış hâli — tek cihaz, üç ölçek. <b>Veri:</b> İstanbul 13 Eki 2026; bugün 13°–21°, şimdi 17°, Çarşamba %40 yağış, Cumartesi %80 ve gök gürültüsü.</div>
+</section>
+
+<!-- ============================================================ 5 UYARI / KRİTİK -->
+<section class="board" id="uyari-kritik" data-board="uyari-kritik" style="--w:776px">
+  <header><b>Uyarı · kritik</b><code>776×620</code></header>
+  <div class="artboard" style="width:776px;height:620px;display:flex;gap:8px;padding:8px;background:var(--well)">
+    <!-- uyarı -->
+    <div class="pop" style="height:500px">
+      <div class="pop-h" style="margin-bottom:var(--sp-4)">
+        <span class="loc">Kadıköy, İstanbul</span><span class="ago">2 dk önce</span>
+        <span class="icon-btn"><svg class="i" viewBox="0 0 24 24"><path d="M19.5 12a7.5 7.5 0 1 1-2.6-5.7"/><path d="M19.8 5.2v4.4h-4.4"/></svg></span>
+      </div>
+      <div class="alert">
+        <svg class="i" viewBox="0 0 24 24" style="color:var(--warn)"><path d="M12 4.6 21 19.4H3Z"/><path d="M12 10v3.6M12 16.4v.6"/></svg>
+        <span class="txt">
+          <span class="ttl">Kuzey rüzgarları 60 km/sa'ye çıkıyor</span>
+          <span class="when num">Çarşamba 09:00 – 17:00 · kıyıda sörf, çatı eşyaları</span>
+        </span>
+      </div>
+      <div class="hero">
+        <span class="big num">19°</span>
+        <span class="meta"><span class="cond">Sağanaklı</span>
+          <span class="sub2 num">Hissedilen 16° · Nem %78<br>Rüzgâr 46 km/sa KD</span></span>
+        <span class="glyph"><svg class="i xl" viewBox="0 0 24 24"><path d="M6.6 14.4h9.6a3.1 3.1 0 0 0 .3-6.2 4.6 4.6 0 0 0-8.8-.7A3.5 3.5 0 0 0 6.6 14.4Z"/><path d="M9.4 17.2l-1 2.4M14 17.2l-1 2.4"/></svg></span>
+      </div>
+      <div class="rail-block">
+          <div class="ray big">
+            <span class="track"></span>
+            <span class="seg" style="left:62.2px;width:166.0px"></span>
+            <span class="now" style="left:186.8px"></span>
+          </div>
+          <span class="rl-min num" style="left:62.2px">13°</span>
+          <span class="rl-max num" style="left:228.2px">21°</span>
+          <span class="rl-now num" style="left:186.8px">şimdi 19°</span>
+        </div>
+      <div class="hourly">
+        <div class="cap"><span>Saatlik</span><span class="num">09 – 18 · kaydırılır</span></div>
+        <div class="hstrip">
+          <svg class="curve" viewBox="0 0 332 64" preserveAspectRatio="none"><path d="M 16.6 24.9 49.8 20.0 83.0 22.4 116.2 27.3 149.4 29.8 182.6 32.2 215.8 34.7 249.0 37.1 282.2 39.6 315.4 42.0" fill="none" stroke="var(--track)" stroke-width="1.2" vector-effect="non-scaling-stroke"/></svg>
+          <span class="hr num" style="left:16.6px">9</span>
+          <span class="dot" style="left:16.6px;top:21.4px"></span>
+          <span class="pb" style="left:16.6px;top:59.0px;height:3.0px"></span>
+          <span class="hr num" style="left:49.8px">10</span>
+          <span class="dot" style="left:49.8px;top:16.5px"></span>
+          <span class="pb" style="left:49.8px;top:55.4px;height:6.6px"></span>
+          <span class="hr num" style="left:83.0px">11</span>
+          <span class="dot" style="left:83.0px;top:18.9px"></span>
+          <span class="pb" style="left:83.0px;top:50.6px;height:11.4px"></span>
+          <span class="hr num" style="left:116.2px">12</span>
+          <span class="dot" style="left:116.2px;top:23.8px"></span>
+          <span class="pb" style="left:116.2px;top:48.7px;height:13.3px"></span>
+          <span class="hr num" style="left:149.4px">13</span>
+          <span class="dot" style="left:149.4px;top:26.3px"></span>
+          <span class="pb" style="left:149.4px;top:46.8px;height:15.2px"></span>
+          <span class="hr num" style="left:182.6px">14</span>
+          <span class="dot" style="left:182.6px;top:28.7px"></span>
+          <span class="pb" style="left:182.6px;top:46.8px;height:15.2px"></span>
+          <span class="hr num" style="left:215.8px">15</span>
+          <span class="dot" style="left:215.8px;top:31.2px"></span>
+          <span class="pb" style="left:215.8px;top:47.8px;height:14.2px"></span>
+          <span class="hr num" style="left:249.0px">16</span>
+          <span class="dot" style="left:249.0px;top:33.6px"></span>
+          <span class="pb" style="left:249.0px;top:51.5px;height:10.5px"></span>
+          <span class="hr num" style="left:282.2px">17</span>
+          <span class="dot" style="left:282.2px;top:36.1px"></span>
+          <span class="pb" style="left:282.2px;top:54.4px;height:7.6px"></span>
+          <span class="hr num" style="left:315.4px">18</span>
+          <span class="dot" style="left:315.4px;top:38.5px"></span>
+          <span class="pb" style="left:315.4px;top:57.2px;height:4.8px"></span>
+          </div>
+      </div>
+      <div class="days">
+        <div class="day"><span class="d">Sal</span><span class="dnum">13</span><svg class="i" viewBox="0 0 24 24"><circle cx="9" cy="9.2" r="3.4"/><path d="M6.6 18h9.6a3.1 3.1 0 0 0 .3-6.2 4.6 4.6 0 0 0-8.8-.7A3.5 3.5 0 0 0 6.6 18Z"/></svg>
+            <span class="minv num">13°</span><span class="maxv num">21°</span>
+            <span class="rng"><span class="track"></span><span class="seg" style="left:26.2px;width:70.0px"></span></span><span class="pp"></span></div>
+        <div class="day"><span class="d">Çar</span><span class="dnum">14</span><svg class="i" viewBox="0 0 24 24"><path d="M6.6 14.4h9.6a3.1 3.1 0 0 0 .3-6.2 4.6 4.6 0 0 0-8.8-.7A3.5 3.5 0 0 0 6.6 14.4Z"/><path d="M9.4 17.2l-1 2.4M14 17.2l-1 2.4"/></svg>
+            <span class="minv num">14°</span><span class="maxv num">19°</span>
+            <span class="rng"><span class="track"></span><span class="seg" style="left:35.0px;width:43.8px"></span></span><span class="pp num">80%</span></div>
+        <div class="day"><span class="d">Per</span><span class="dnum">15</span><svg class="i" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3.6"/><path d="M12 4.2v2.1M12 17.7v2.1M4.2 12h2.1M17.7 12h2.1M6.6 6.6l1.5 1.5M15.9 15.9l1.5 1.5M17.4 6.6l-1.5 1.5M8.1 15.9l-1.5 1.5"/></svg>
+            <span class="minv num">15°</span><span class="maxv num">22°</span>
+            <span class="rng"><span class="track"></span><span class="seg" style="left:43.8px;width:61.2px"></span></span><span class="pp"></span></div>
+        <div class="day"><span class="d">Cum</span><span class="dnum">16</span><svg class="i" viewBox="0 0 24 24"><path d="M15.4 5.2a5.9 5.9 0 0 0-4.8 6.9 4 4 0 0 0-.6 7.9h9.6a3.4 3.4 0 0 0 1.2-6.5 6.4 6.4 0 0 0-5.4-8.3Z"/></svg>
+            <span class="minv num">13°</span><span class="maxv num">20°</span>
+            <span class="rng"><span class="track"></span><span class="seg" style="left:26.2px;width:61.2px"></span></span><span class="pp"></span></div>
+        <div class="day"><span class="d">Cmt</span><span class="dnum">17</span><svg class="i" viewBox="0 0 24 24"><path d="M6.6 13.6h9.6a3.1 3.1 0 0 0 .3-6.2 4.6 4.6 0 0 0-8.8-.7A3.5 3.5 0 0 0 6.6 13.6Z"/><path d="M12.4 15.4l-2.4 3.4h2.7l-1 2.4 3.2-3.6h-2.7l.9-2.2Z"/></svg>
+            <span class="minv num">12°</span><span class="maxv num">17°</span>
+            <span class="rng"><span class="track"></span><span class="seg" style="left:17.5px;width:43.8px"></span></span><span class="pp num">80%</span></div>
+        </div>
+      <div class="pop-f"><span>Kaynak open-meteo · 13 Eki 2026 14:22</span>
+        <span class="chip-btn" style="margin-left:auto">Konum</span><span class="chip-btn solid">Yenile</span></div>
+    </div>
+    <!-- kritik -->
+    <div class="pop" style="height:560px">
+      <div class="pop-h" style="margin-bottom:var(--sp-4)">
+        <span class="loc">Kadıköy, İstanbul</span><span class="ago">1 dk önce</span>
+        <span class="icon-btn"><svg class="i" viewBox="0 0 24 24"><path d="M19.5 12a7.5 7.5 0 1 1-2.6-5.7"/><path d="M19.8 5.2v4.4h-4.4"/></svg></span>
+      </div>
+      <div class="alert crit">
+        <svg class="i" viewBox="0 0 24 24" style="color:var(--alert-ink)"><path d="M6.6 12.6h9.6a3.1 3.1 0 0 0 .3-6.2 4.6 4.6 0 0 0-8.8-.7A3.5 3.5 0 0 0 6.6 12.6Z"/><path d="M12.4 14.4l-2.4 3.4h2.7l-1 2.4 3.2-3.6h-2.7l.9-2.2Z"/></svg>
+        <span class="txt">
+          <span class="ttl">Kırmızı uyarı: gök gürültülü sağanak</span>
+          <span class="when num">Cumartesi 14:00 – 19:00 · 25 mm/sa · yıldırım riski</span>
+        </span>
+      </div>
+      <div class="hero">
+        <span class="big num">16°</span>
+        <span class="meta"><span class="cond">Gök gürültülü sağanak</span>
+          <span class="sub2 num">Hissedilen 14° · Nem %84<br>Rüzgâr 38 km/sa B</span></span>
+        <span class="glyph" style="color:var(--alert-ink)"><svg class="i xl" viewBox="0 0 24 24"><path d="M6.6 12.6h9.6a3.1 3.1 0 0 0 .3-6.2 4.6 4.6 0 0 0-8.8-.7A3.5 3.5 0 0 0 6.6 12.6Z"/><path d="M12.4 14.4l-2.4 3.4h2.7l-1 2.4 3.2-3.6h-2.7l.9-2.2Z"/></svg></span>
+      </div>
+      <div class="rail-block">
+          <div class="ray big">
+            <span class="track"></span>
+            <span class="seg" style="left:41.5px;width:166.0px"></span>
+            <span class="now" style="left:124.5px"></span>
+          </div>
+          <span class="rl-min num" style="left:41.5px">12°</span>
+          <span class="rl-max num" style="left:207.5px">20°</span>
+          <span class="rl-now num" style="left:124.5px">şimdi 16°</span>
+        </div>
+      <div class="hourly">
+        <div class="cap"><span>Saatlik</span><span class="num">09 – 18 · kaydırılır</span></div>
+        <div class="hstrip">
+          <svg class="curve" viewBox="0 0 332 64" preserveAspectRatio="none"><path d="M 16.6 24.9 49.8 20.0 83.0 22.4 116.2 27.3 149.4 29.8 182.6 32.2 215.8 34.7 249.0 37.1 282.2 39.6 315.4 42.0" fill="none" stroke="var(--track)" stroke-width="1.2" vector-effect="non-scaling-stroke"/></svg>
+          <span class="hr num" style="left:16.6px">9</span>
+          <span class="dot" style="left:16.6px;top:21.4px"></span>
+          <span class="pb" style="left:16.6px;top:58.2px;height:3.8px"></span>
+          <span class="hr num" style="left:49.8px">10</span>
+          <span class="dot" style="left:49.8px;top:16.5px"></span>
+          <span class="pb" style="left:49.8px;top:52.5px;height:9.5px"></span>
+          <span class="hr num" style="left:83.0px">11</span>
+          <span class="dot" style="left:83.0px;top:18.9px"></span>
+          <span class="pb" style="left:83.0px;top:45.9px;height:16.1px"></span>
+          <span class="hr num" style="left:116.2px">12</span>
+          <span class="dot" style="left:116.2px;top:23.8px"></span>
+          <span class="pb" style="left:116.2px;top:44.0px;height:18.0px"></span>
+          <span class="hr num" style="left:149.4px">13</span>
+          <span class="dot" style="left:149.4px;top:26.3px"></span>
+          <span class="pb" style="left:149.4px;top:44.9px;height:17.1px"></span>
+          <span class="hr num" style="left:182.6px">14</span>
+          <span class="dot" style="left:182.6px;top:28.7px"></span>
+          <span class="pb" style="left:182.6px;top:44.9px;height:17.1px"></span>
+          <span class="hr num" style="left:215.8px">15</span>
+          <span class="dot" style="left:215.8px;top:31.2px"></span>
+          <span class="pb" style="left:215.8px;top:47.8px;height:14.2px"></span>
+          <span class="hr num" style="left:249.0px">16</span>
+          <span class="dot" style="left:249.0px;top:33.6px"></span>
+          <span class="pb" style="left:249.0px;top:50.6px;height:11.4px"></span>
+          <span class="hr num" style="left:282.2px">17</span>
+          <span class="dot" style="left:282.2px;top:36.1px"></span>
+          <span class="pb" style="left:282.2px;top:54.4px;height:7.6px"></span>
+          <span class="hr num" style="left:315.4px">18</span>
+          <span class="dot" style="left:315.4px;top:38.5px"></span>
+          <span class="pb" style="left:315.4px;top:57.2px;height:4.8px"></span>
+          </div>
+      </div>
+      <div class="days">
+        <div class="day"><span class="d">Sal</span><span class="dnum">13</span><svg class="i" viewBox="0 0 24 24"><circle cx="9" cy="9.2" r="3.4"/><path d="M6.6 18h9.6a3.1 3.1 0 0 0 .3-6.2 4.6 4.6 0 0 0-8.8-.7A3.5 3.5 0 0 0 6.6 18Z"/></svg>
+            <span class="minv num">13°</span><span class="maxv num">21°</span>
+            <span class="rng"><span class="track"></span><span class="seg" style="left:26.2px;width:70.0px"></span></span><span class="pp"></span></div>
+        <div class="day"><span class="d">Çar</span><span class="dnum">14</span><svg class="i" viewBox="0 0 24 24"><path d="M6.6 14.4h9.6a3.1 3.1 0 0 0 .3-6.2 4.6 4.6 0 0 0-8.8-.7A3.5 3.5 0 0 0 6.6 14.4Z"/><path d="M9.4 17.2l-1 2.4M14 17.2l-1 2.4"/></svg>
+            <span class="minv num">14°</span><span class="maxv num">19°</span>
+            <span class="rng"><span class="track"></span><span class="seg" style="left:35.0px;width:43.8px"></span></span><span class="pp num">40%</span></div>
+        <div class="day"><span class="d">Per</span><span class="dnum">15</span><svg class="i" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3.6"/><path d="M12 4.2v2.1M12 17.7v2.1M4.2 12h2.1M17.7 12h2.1M6.6 6.6l1.5 1.5M15.9 15.9l1.5 1.5M17.4 6.6l-1.5 1.5M8.1 15.9l-1.5 1.5"/></svg>
+            <span class="minv num">15°</span><span class="maxv num">22°</span>
+            <span class="rng"><span class="track"></span><span class="seg" style="left:43.8px;width:61.2px"></span></span><span class="pp"></span></div>
+        <div class="day"><span class="d">Cum</span><span class="dnum">16</span><svg class="i" viewBox="0 0 24 24"><path d="M15.4 5.2a5.9 5.9 0 0 0-4.8 6.9 4 4 0 0 0-.6 7.9h9.6a3.4 3.4 0 0 0 1.2-6.5 6.4 6.4 0 0 0-5.4-8.3Z"/></svg>
+            <span class="minv num">13°</span><span class="maxv num">20°</span>
+            <span class="rng"><span class="track"></span><span class="seg" style="left:26.2px;width:61.2px"></span></span><span class="pp"></span></div>
+        <div class="day"><span class="d">Cmt</span><span class="dnum">17</span><svg class="i" viewBox="0 0 24 24"><path d="M6.6 13.6h9.6a3.1 3.1 0 0 0 .3-6.2 4.6 4.6 0 0 0-8.8-.7A3.5 3.5 0 0 0 6.6 13.6Z"/><path d="M12.4 15.4l-2.4 3.4h2.7l-1 2.4 3.2-3.6h-2.7l.9-2.2Z"/></svg>
+            <span class="minv num">12°</span><span class="maxv num">17°</span>
+            <span class="rng"><span class="track"></span><span class="seg" style="left:17.5px;width:43.8px"></span></span><span class="pp num">95%</span></div>
+        </div>
+      <div class="pop-f"><span>Kaynak open-meteo · 13 Eki 2026 14:25</span>
+        <span class="chip-btn" style="margin-left:auto">Konum</span><span class="chip-btn solid">Yenile</span></div>
+    </div>
+  </div>
+  <div class="note"><b>Uyarı ve kritik arasındaki tek fark renk değil:</b> ikon, başlık cümlesi ve zaman aralığı değişiyor — sarı üçgen "koşullara dikkat", kırmızı şimşek "kırmızı uyarı". Pencere büyüyor (500 → 560px, ölçüldü), hiçbir satır taşmıyor ve içerik sıkışmıyor. <b>Bar'daki karşılığı:</b> hapın sonuna 7px uyarı noktası geliyor, genişlik değişmiyor.</div>
+</section>
+
+<!-- ============================================================ 6 YÜKLEME / HATA / TAŞMA -->
+<section class="board" id="yukleme-hata-tasma" data-board="yukleme-hata-tasma" style="--w:776px">
+  <header><b>Yükleme · bağlantı hatası · taşma</b><code>776×700</code></header>
+  <div class="artboard" style="width:776px;height:700px;background:var(--well);padding:8px">
+    <div style="display:flex;gap:8px;align-items:center;margin-bottom:8px">
+      <span class="tag" style="width:74px;text-align:right">yükleniyor</span>
+      <div class="pill" style="position:static;height:38px;width:232px;flex:none">
+        <svg class="i" viewBox="0 0 24 24" style="opacity:.35"><path d="M6.6 18h9.6a3.1 3.1 0 0 0 .3-6.2 4.6 4.6 0 0 0-8.8-.7A3.5 3.5 0 0 0 6.6 18Z"/></svg>
+        <span class="skel" style="width:26px;height:14px"></span>
+        <span class="ray" style="width:60px"><span class="track"></span></span>
+        <span class="loc">Kadıköy</span>
+      </div>
+      <span class="tag">son değerler korunur; yalnız rakam iskeletlenir, yükseklik 38px</span>
+    </div>
+    <div style="display:flex;gap:8px;align-items:center;margin-bottom:10px">
+      <span class="tag" style="width:74px;text-align:right">bağlantı yok</span>
+      <div class="pill" style="position:static;height:38px;width:232px;flex:none">
+        <svg class="i" viewBox="0 0 24 24" style="color:var(--muted)"><path d="M3.5 8.6a13 13 0 0 1 17 0M6.8 12.2a8.4 8.4 0 0 1 10.4 0M10 15.8a3.8 3.8 0 0 1 4 0M3 3l18 18"/><circle cx="12" cy="19.4" r=".6" fill="currentColor"/></svg>
+        <span class="t num" style="color:var(--muted)">—</span>
+        <span class="ray" style="width:60px"><span class="track"></span></span>
+        <span class="loc" style="color:var(--muted)">14 dk önce</span>
+      </div>
+      <span class="tag">rakam yerine tire, zaman damgası; tıklayınca pencere açılır ve "Tekrar dene" vardır</span>
+    </div>
+    <div style="display:flex;gap:8px">
+      <!-- yükleme penceresi -->
+      <div class="pop" style="height:500px">
+        <div class="bar-progress"></div>
+        <div class="pop-h"><span class="loc">Kadıköy, İstanbul</span><span class="ago">Güncelleniyor</span>
+          <span class="icon-btn"><svg class="i" viewBox="0 0 24 24"><path d="M19.5 12a7.5 7.5 0 1 1-2.6-5.7"/><path d="M19.8 5.2v4.4h-4.4"/></svg></span></div>
+        <div class="hero">
+          <span class="skel" style="width:96px;height:44px;border-radius:var(--r-chip)"></span>
+          <span class="meta"><span class="skel" style="width:142px;height:15px"></span><span class="skel" style="width:150px;height:11px"></span></span>
+          <span class="glyph" style="opacity:.3"><svg class="i xl" viewBox="0 0 24 24"><path d="M6.6 18h9.6a3.1 3.1 0 0 0 .3-6.2 4.6 4.6 0 0 0-8.8-.7A3.5 3.5 0 0 0 6.6 18Z"/></svg></span>
+        </div>
+        <div class="rail-block"><div class="skel" style="width:100%;height:14px"></div></div>
+        <div class="hourly"><div class="skel" style="width:180px;height:11px"></div>
+          <div style="display:flex;gap:6px;margin-top:12px">
+            <span class="skel" style="flex:1;height:44px"></span><span class="skel" style="flex:1;height:44px"></span>
+            <span class="skel" style="flex:1;height:44px"></span><span class="skel" style="flex:1;height:44px"></span>
+            <span class="skel" style="flex:1;height:44px"></span></div></div>
+        <div class="days">
+          <div class="day"><span class="skel" style="width:30px;height:11px"></span><span class="skel" style="width:22px;height:11px"></span>
+            <span class="skel" style="width:16px;height:16px;border-radius:var(--r-dot)"></span>
+            <span class="skel" style="width:26px;height:11px"></span><span class="skel" style="width:26px;height:11px"></span>
+            <span class="skel" style="width:92px;height:3px;margin-left:auto"></span></div>
+          <div class="day"><span class="skel" style="width:30px;height:11px"></span><span class="skel" style="width:22px;height:11px"></span>
+            <span class="skel" style="width:16px;height:16px;border-radius:var(--r-dot)"></span>
+            <span class="skel" style="width:26px;height:11px"></span><span class="skel" style="width:26px;height:11px"></span>
+            <span class="skel" style="width:92px;height:3px;margin-left:auto"></span></div>
+          <div class="day"><span class="skel" style="width:30px;height:11px"></span><span class="skel" style="width:22px;height:11px"></span>
+            <span class="skel" style="width:16px;height:16px;border-radius:var(--r-dot)"></span>
+            <span class="skel" style="width:26px;height:11px"></span><span class="skel" style="width:26px;height:11px"></span>
+            <span class="skel" style="width:92px;height:3px;margin-left:auto"></span></div>
+        </div>
+        <div class="pop-f"><span>open-meteo'dan veri bekleniyor</span></div>
+      </div>
+      <!-- taşma -->
+      <div class="pop" style="height:580px">
+        <div class="pop-h" style="margin-bottom:var(--sp-4)">
+          <span class="loc" style="max-width:150px">Ağırnas, Sakarya</span><span class="ago">9 dk önce</span>
+          <span class="icon-btn"><svg class="i" viewBox="0 0 24 24"><path d="M19.5 12a7.5 7.5 0 1 1-2.6-5.7"/><path d="M19.8 5.2v4.4h-4.4"/></svg></span></div>
+        <div class="hero">
+          <span class="big num">3°</span>
+          <span class="meta">
+            <span class="cond">Kuzeydoğudan kuvvetli rüzgâr, yer yer gök gürültülü sağanak</span>
+            <span class="sub2 num">Hissedilen −2° · Nem %91<br>Rüzgâr 54 km/sa KD</span></span>
+          <span class="glyph" style="color:var(--alert-ink)"><svg class="i xl" viewBox="0 0 24 24"><path d="M6.6 12.6h9.6a3.1 3.1 0 0 0 .3-6.2 4.6 4.6 0 0 0-8.8-.7A3.5 3.5 0 0 0 6.6 12.6Z"/><path d="M12.4 14.4l-2.4 3.4h2.7l-1 2.4 3.2-3.6h-2.7l.9-2.2Z"/></svg></span>
+        </div>
+        <div class="rail-block">
+          <div class="ray big">
+            <span class="track"></span>
+            <span class="seg" style="left:23.7px;width:166.0px"></span>
+            <span class="now" style="left:118.6px"></span>
+          </div>
+          <span class="rl-min num" style="left:23.7px">-1°</span>
+          <span class="rl-max num" style="left:189.7px">6°</span>
+          <span class="rl-now num" style="left:118.6px">şimdi 3°</span>
+        </div>
+        <div class="hourly">
+          <div class="cap"><span>Saatlik</span><span class="num">06 – 15 · kaydırıldı</span></div>
+          <div class="hstrip">
+          <svg class="curve" viewBox="0 0 332 64" preserveAspectRatio="none"><path d="M 16.6 36.8 49.8 34.2 83.0 29.0 116.2 31.6 149.4 31.6 182.6 34.2 215.8 36.8 249.0 39.4 282.2 42.0 315.4 42.0" fill="none" stroke="var(--track)" stroke-width="1.2" vector-effect="non-scaling-stroke"/></svg>
+          <span class="hr num" style="left:16.6px">6</span>
+          <span class="dot" style="left:16.6px;top:33.3px"></span>
+          <span class="hr num" style="left:49.8px">7</span>
+          <span class="dot" style="left:49.8px;top:30.7px"></span>
+          <span class="pb" style="left:49.8px;top:59.0px;height:3.0px"></span>
+          <span class="hr num" style="left:83.0px">8</span>
+          <span class="dot" style="left:83.0px;top:25.5px"></span>
+          <span class="pb" style="left:83.0px;top:56.3px;height:5.7px"></span>
+          <span class="hr num" style="left:116.2px">9</span>
+          <span class="dot" style="left:116.2px;top:28.1px"></span>
+          <span class="pb" style="left:116.2px;top:49.6px;height:12.4px"></span>
+          <span class="hr num" style="left:149.4px">10</span>
+          <span class="dot" style="left:149.4px;top:28.1px"></span>
+          <span class="pb" style="left:149.4px;top:44.9px;height:17.1px"></span>
+          <span class="hr num" style="left:182.6px">11</span>
+          <span class="dot" style="left:182.6px;top:30.7px"></span>
+          <span class="pb" style="left:182.6px;top:44.0px;height:18.0px"></span>
+          <span class="hr num" style="left:215.8px">12</span>
+          <span class="dot" style="left:215.8px;top:33.3px"></span>
+          <span class="pb" style="left:215.8px;top:45.9px;height:16.1px"></span>
+          <span class="hr num" style="left:249.0px">13</span>
+          <span class="dot" style="left:249.0px;top:35.9px"></span>
+          <span class="pb" style="left:249.0px;top:48.7px;height:13.3px"></span>
+          <span class="hr num" style="left:282.2px">14</span>
+          <span class="dot" style="left:282.2px;top:38.5px"></span>
+          <span class="pb" style="left:282.2px;top:51.5px;height:10.5px"></span>
+          <span class="hr num" style="left:315.4px">15</span>
+          <span class="dot" style="left:315.4px;top:38.5px"></span>
+          <span class="pb" style="left:315.4px;top:55.4px;height:6.6px"></span>
+          </div>
+        </div>
+        <div class="days">
+        <div class="day"><span class="d">Sal</span><span class="dnum">13</span><svg class="i" viewBox="0 0 24 24"><path d="M6.6 13.6h9.6a3.1 3.1 0 0 0 .3-6.2 4.6 4.6 0 0 0-8.8-.7A3.5 3.5 0 0 0 6.6 13.6Z"/><path d="M12.4 15.4l-2.4 3.4h2.7l-1 2.4 3.2-3.6h-2.7l.9-2.2Z"/></svg>
+            <span class="minv num">-1°</span><span class="maxv num">6°</span>
+            <span class="rng"><span class="track"></span><span class="seg" style="left:10.0px;width:70.0px"></span></span><span class="pp num">60%</span></div>
+        <div class="day"><span class="d">Çar</span><span class="dnum">14</span><svg class="i" viewBox="0 0 24 24"><path d="M6.6 14.4h9.6a3.1 3.1 0 0 0 .3-6.2 4.6 4.6 0 0 0-8.8-.7A3.5 3.5 0 0 0 6.6 14.4Z"/><path d="M9.4 17.2l-1 2.4M14 17.2l-1 2.4"/></svg>
+            <span class="minv num">1°</span><span class="maxv num">8°</span>
+            <span class="rng"><span class="track"></span><span class="seg" style="left:30.0px;width:70.0px"></span></span><span class="pp num">40%</span></div>
+        <div class="day"><span class="d">Per</span><span class="dnum">15</span><svg class="i" viewBox="0 0 24 24"><path d="M6.6 14.4h9.6a3.1 3.1 0 0 0 .3-6.2 4.6 4.6 0 0 0-8.8-.7A3.5 3.5 0 0 0 6.6 14.4Z"/><path d="M9.4 17.2l-1 2.4M14 17.2l-1 2.4"/></svg>
+            <span class="minv num">3°</span><span class="maxv num">9°</span>
+            <span class="rng"><span class="track"></span><span class="seg" style="left:50.0px;width:60.0px"></span></span><span class="pp num">25%</span></div>
+        <div class="day"><span class="d">Cum</span><span class="dnum">16</span><svg class="i" viewBox="0 0 24 24"><circle cx="9" cy="9.2" r="3.4"/><path d="M6.6 18h9.6a3.1 3.1 0 0 0 .3-6.2 4.6 4.6 0 0 0-8.8-.7A3.5 3.5 0 0 0 6.6 18Z"/></svg>
+            <span class="minv num">4°</span><span class="maxv num">11°</span>
+            <span class="rng"><span class="track"></span><span class="seg" style="left:60.0px;width:70.0px"></span></span><span class="pp"></span></div>
+        <div class="day"><span class="d">Cmt</span><span class="dnum">17</span><svg class="i" viewBox="0 0 24 24"><circle cx="9" cy="9.2" r="3.4"/><path d="M6.6 18h9.6a3.1 3.1 0 0 0 .3-6.2 4.6 4.6 0 0 0-8.8-.7A3.5 3.5 0 0 0 6.6 18Z"/></svg>
+            <span class="minv num">2°</span><span class="maxv num">8°</span>
+            <span class="rng"><span class="track"></span><span class="seg" style="left:40.0px;width:60.0px"></span></span><span class="pp"></span></div>
+        </div>
+        <div class="pop-f"><span>open-meteo · 13 Eki 2026 05:11</span>
+          <span class="chip-btn" style="margin-left:auto">Tam ekran</span><span class="chip-btn solid">Yenile</span></div>
+      </div>
+    </div>
+  </div>
+  <div class="note"><b>Yükleme:</b> iskeletler gerçek metin genişliklerinde (96 / 142 / 150 / 140px) olduğu için veri gelince hiçbir şey zıplamıyor. <b>Taşma:</b> uzun yer adı "…" ile kırpılıyor, uzun durum cümlesi iki satıra sınırlanıyor, negatif dereceler rayda aynı 10–26° ekseninde kalıyor, saat şeridi sola kaydırılmışken sol kenar koyu bir maskeyle söner. Ölçülen yükseklikler: yükleme penceresi 498px, taşma penceresi 580px — içerik kırpılmaz, pencere büyür.</div>
+</section>
+
+<!-- ============================================================ 7 HAREKET -->
+<section class="board" id="hareket" data-board="hareket" style="--w:1000px">
+  <header><b>Hareket — haptan pencereye</b><code>1260×270</code></header>
+  <div class="artboard" style="width:1260px;height:270px">
+    <div class="tag" style="padding:14px 18px 0">Süreler kabuğun kendi ölçümlerinden: açılış 380ms, kapanış 260ms, hover 150ms, basış 110ms OutCubic (DynamicIsland.qml:2497, TimeKey.qml:39-41)</div>
+    <div class="frames">
+      <div style="width:232px;flex:none">
+        <div class="pill" style="position:static;height:38px;width:232px">
+          <svg class="i" viewBox="0 0 24 24"><circle cx="9" cy="9.2" r="3.4"/><path d="M6.6 18h9.6a3.1 3.1 0 0 0 .3-6.2 4.6 4.6 0 0 0-8.8-.7A3.5 3.5 0 0 0 6.6 18Z"/></svg>
+          <span class="t num">17°</span>
+          <span class="ray" style="width:60px"><span class="track"></span><span class="seg" style="left:17px;width:30px"></span><span class="now" style="left:39px"></span></span>
+          <span class="loc">Kadıköy</span>
+        </div>
+        <div class="tag" style="margin-top:10px">t = 0ms · haptan duruyor</div>
+      </div>
+      <div class="arrow"><div class="bar"></div><em>0 – 150ms<br>yüzey --chip<br>150ms ease-out</em></div>
+      <div style="width:232px;flex:none">
+        <div class="pill on" style="position:static;height:38px;width:232px;transform:scale(1.015)">
+          <svg class="i" viewBox="0 0 24 24"><circle cx="9" cy="9.2" r="3.4"/><path d="M6.6 18h9.6a3.1 3.1 0 0 0 .3-6.2 4.6 4.6 0 0 0-8.8-.7A3.5 3.5 0 0 0 6.6 18Z"/></svg>
+          <span class="t num">17°</span>
+          <span class="ray" style="width:60px"><span class="track"></span><span class="seg" style="left:17px;width:30px"></span><span class="now" style="left:39px"></span></span>
+          <span class="loc">Kadıköy</span>
+        </div>
+        <div class="tag" style="margin-top:10px">t = 150ms · hover yüzeyi</div>
+      </div>
+      <div class="arrow"><div class="bar"></div><em>150 – 380ms<br>ölçek .985 → 1<br>pencere doğar<br>380ms ease-out</em></div>
+      <div style="width:368px;flex:none">
+        <div class="pop" style="height:150px;overflow:hidden;border-radius:var(--r-pop);mask-image:linear-gradient(#000 62%,rgba(0,0,0,.25))">
+          <div class="pop-h" style="margin-bottom:var(--sp-3)"><span class="loc">Kadıköy, İstanbul</span>
+            <span class="ago">2 dk önce</span>
+            <span class="icon-btn"><svg class="i" viewBox="0 0 24 24"><path d="M19.5 12a7.5 7.5 0 0 0 .3 6.4"/><path d="M19.5 12a7.5 7.5 0 1 1-2.6-5.7"/><path d="M19.8 5.2v4.4h-4.4"/></svg></span></div>
+          <div class="hero">
+            <span class="big num">17°</span>
+            <span class="meta"><span class="cond">Parçalı bulutlu</span>
+              <span class="sub2 num">Hissedilen 16° · Nem %62</span></span>
+            <span class="glyph"><svg class="i xl" viewBox="0 0 24 24"><circle cx="9" cy="9.2" r="3.4"/><path d="M6.6 18h9.6a3.1 3.1 0 0 0 .3-6.2 4.6 4.6 0 0 0-8.8-.7A3.5 3.5 0 0 0 6.6 18Z"/></svg></span>
+          </div>
+        </div>
+        <div class="tag" style="margin-top:10px">t = 380ms · pencere tam · ısı rayı haptan aynı kenardan açılır</div>
+      </div>
+      <div class="arrow" style="width:78px"><div class="bar"></div><em>kapanış 260ms<br>ease-in, %15 daha kısa</em></div>
+    </div>
+  </div>
+  <div class="note"><b>Kural:</b> pencere her zaman haptan doğar, ortadan şişmez; kapatma açılıştan kısadır. İçerik satırları 40ms arayla belirir (gecikmeli giriş), uyarı bandı 180ms'de bir kez renk olarak belirir ve tekrar etmez. <code>prefers-reduced-motion</code> altında yalnız opaklık değişir, ölçek ve kayma olmaz.</div>
+</section>
+
+<!-- ============================================================ 8 JETONLAR -->
+<section class="board" id="jetonlar" data-board="jetonlar" style="--w:900px">
+  <header><b>Jetonlar, tip ve açık tema yeniden boyası</b><code>900×724</code></header>
+  <div class="artboard" style="width:900px;height:724px;padding:18px">
+    <p class="cap" style="font-size:11px;color:var(--chrome);margin:0 0 var(--sp-3)">Palet — kontrast oranları contrast.py ile ölçüldü, yüzey #070707 üzerinde</p>
+    <div class="sw-row">
+      <div class="sw"><b style="background:var(--surface)"></b>yüzey<u>--surface #070707</u></div>
+      <div class="sw"><b style="background:var(--surface-alt)"></b>yükseltilmiş<u>--surface-alt #171717</u></div>
+      <div class="sw"><b style="background:var(--text)"></b>metin<u>--text #f5f2ec · 18.03</u></div>
+      <div class="sw"><b style="background:var(--subtext)"></b>ikincil<u>--subtext #c1bdb5 · 10.76</u></div>
+      <div class="sw"><b style="background:var(--muted)"></b>soluk<u>--muted #918d86 · 6.10</u></div>
+      <div class="sw"><b style="background:var(--warn)"></b>uyarı<u>--warn #d1a53c · 8.79</u></div>
+      <div class="sw"><b style="background:var(--alert)"></b>alarm<u>--alert #c24a4e · 4.20 FAIL</u></div>
+      <div class="sw"><b style="background:var(--alert-ink)"></b>alarm metni<u>--alert-ink #e3807f · 7.35</u></div>
+      <div class="sw"><b style="background:var(--precip)"></b>yağış<u>--precip #8fb3b0 · 8.87</u></div>
+      <div class="sw"><b style="background:var(--live)"></b>canlı<u>--live #3aa863 · 6.68</u></div>
+    </div>
+    <div class="two" style="margin-top:var(--sp-6);grid-template-columns:1.25fr 1fr">
+      <div>
+        <p class="cap" style="font-size:11px;color:var(--chrome);margin:0 0 var(--sp-3)">Tip — Bricolage Grotesque (Theme.qml:19), 1.2 oranı, 11px taban; sayılar tabular</p>
+        <div class="scale-row num">
+          <div style="font-size:11px">11</div><div style="font-size:13px">13</div><div style="font-size:16px">16</div>
+          <div style="font-size:19px">19</div><div style="font-size:23px">23</div><div style="font-size:28px">28</div>
+          <div style="font-size:40px">40</div><div style="font-size:48px">48</div>
+        </div>
+        <p class="mono-note" style="margin:var(--sp-3) 0 0">Kullanım: 48 pencere başlığı · 19 hap rakamı · 16 durum cümlesi · 13 satır · 11 zaman damgası ve birim. Rol tek yüzlü: kabuğun kendi yazı tipi, widget başka bir yüz taşımasın.</p>
+        <p class="cap" style="font-size:11px;color:var(--chrome);margin:var(--sp-5) 0 var(--sp-2)">Yazı tipi karşılaştırması — aynı örnek: "17° Kadıköy · ĞğÜüŞş Öö Çç 38px"</p>
+        <div class="fonts">
+          <div><span>Bricolage Grotesque — seçilen</span><span class="s">17° Kadıköy · ĞğÜüŞş</span></div>
+          <div><span>Cantarell (GNOME)</span><span class="s" style="font-family:Cantarell">17° Kadıköy · ĞğÜüŞş</span></div>
+          <div><span>Adwaita Sans</span><span class="s" style="font-family:'Adwaita Sans'">17° Kadıköy · ĞğÜüŞş</span></div>
+          <div><span>Iosevka (mono, tabular)</span><span class="s" style="font-family:Iosevka">17° Kadıköy · ĞğÜüŞş</span></div>
+        </div>
+        <p class="mono-note" style="margin:var(--sp-3) 0 0">Mono yalnız kod/veri hizası için; bu widget'ta kullanılmıyor — tabular-nums zaten sabit genişlik veriyor.</p>
+      </div>
+      <div>
+        <p class="cap" style="font-size:11px;color:var(--chrome);margin:0 0 var(--sp-3)">Ölçü ve hareket</p>
+        <p class="mono-note" style="margin:0">
+          Yarıçap 5 / 11 / 30 / tam yuvarlak — TimeKey.qml:30 ve TimeToolsPage.qml:81'den.<br>
+          Boşluk 4 / 6 / 8 / 12 / 18 / 24 / 36 — scales.py --target widget --density compact.<br>
+          Süre 110 basış · 150 hover · 260 veri · 380 açılış / 260 kapanış. Easing tek aile: OutCubic.
+        </p>
+        <p class="cap" style="font-size:11px;color:var(--chrome);margin:var(--sp-5) 0 var(--sp-3)">Kabuk temaları — widget hangisinin açık/kapalı olursa olsun aynı jetonları okur</p>
+        <div class="sw-row">
+          <div class="sw"><b style="background:#070707"></b>umbra<u>varsayılan · bu tahta</u></div>
+          <div class="sw"><b style="background:#f8f1e7"></b>nude<u>açık kardeş</u></div>
+          <div class="sw"><b style="background:#ffffff"></b>white<u>paper</u></div>
+          <div class="sw"><b style="background:#120d08"></b>gold<u>bronz</u></div>
+          <div class="sw"><b style="background:#130a0b"></b>red<u>şarap</u></div>
+        </div>
+        <div style="margin-top:var(--sp-5);border-radius:var(--r-pop);overflow:hidden;border:1px solid var(--line);width:250px">
+          <div style="background:#f8f1e7;color:#2f2620;padding:12px">
+            <div style="display:flex;gap:8px;align-items:baseline">
+              <span style="font-size:34px;line-height:1">17°</span>
+              <span style="font-size:13px">Parçalı bulutlu</span>
+              <span style="margin-left:auto;font-size:11px;color:#7b6a58">2 dk önce</span>
+            </div>
+            <div style="margin-top:10px;position:relative;height:10px">
+              <span style="position:absolute;top:5px;left:0;right:0;height:1px;background:#d9c9b3"></span>
+              <span style="position:absolute;top:4px;left:22px;width:96px;height:3px;background:#5c4433;border-radius:2px"></span>
+              <span style="position:absolute;top:0;left:70px;width:1px;height:10px;background:#2f2620"></span>
+            </div>
+            <div style="margin-top:10px;font-size:11px;color:#544537">Bugün 13° — şimdi 17° — 21°</div>
+            <div style="margin-top:8px;font-size:11px;color:#7f6219;background:rgba(127,98,25,.12);border:1px solid rgba(127,98,25,.3);border-radius:11px;padding:6px 8px">Çar 09:00 · rüzgâr 60 km/sa</div>
+          </div>
+        </div>
+        <p class="mono-note" style="margin:var(--sp-3) 0 0">Yukarıdaki yeniden boya, "nude" teması açıkken pencereyi aynı yapıyla gösterir: jetonlar değişir, yerleşim değişmez.</p>
+      </div>
+    </div>
+  </div>
+  <div class="note"><b>El geçirme notu:</b> --c24a4e değeri ölçülmüş haliyle durum dolgusu olarak kalır; metin olarak kullanılmaz çünkü yüzeyde 4.20:1 veriyor. Metin ve ikon için --alert-ink kullanılır. Ölçülen tüm oranlar bu tahtada yazılıdır; hafızadan değil, contrast.py çıktısından.</div>
+</section>
+
+</div>
+</div>
+<script>
+(function(){
+  var q=new URLSearchParams(location.search), only=q.get('only'), th=q.get('theme');
+  function theme(id){document.documentElement.dataset.theme=id;
+    document.querySelectorAll('.themes button').forEach(function(b){b.setAttribute('aria-pressed',b.dataset.theme===id)});
+    try{localStorage.setItem('canvas-theme',id)}catch(e){}}
+  document.querySelectorAll('.themes button').forEach(function(b){b.onclick=function(){theme(b.dataset.theme)}});
+  try{th=th||localStorage.getItem('canvas-theme')}catch(e){}
+  theme(th||'umbra');
+  if(only){document.body.classList.add('only');var el=document.querySelector('[data-board="'+only+'"]');if(el)el.classList.add('on');}
+})();
+</script>
+</body>
+</ht<!-- cv-runtime -->
+<script>
+/* canvas-runtime: turns any page whose boards carry [data-board] into a pan/zoom infinite canvas.
+ * Injected inline by new-canvas.py / canvasify.py. No dependencies. Never needed by Claude's own Design canvas.
+ * Gestures: drag background = pan, wheel = pan (or zoom, toggle), ctrl/cmd+wheel or pinch = zoom,
+ * double-click background = fit all, F / expand button = focus a board, Esc = back, arrows = next/prev board in focus,
+ * 0 = fit all, 1 = 100%, + / - = zoom, download button = board as standalone HTML.
+ * URL: ?only=<id> single board (used by shoot.sh) · ?flat=1 classic scroll page · #<id> opens focused on a board.
+ */
+(function () {
+  if (window.__canvasRuntime) return;
+  window.__canvasRuntime = true;
+  var doc = document, root = doc.documentElement, body = doc.body;
+  var q = new URLSearchParams(location.search);
+  var all = [].slice.call(doc.querySelectorAll('[data-board]')).filter(function (b) { return !b.parentElement.closest('[data-board]'); });
+  if (!all.length) return;
+  var SKIP = /^(SCRIPT|STYLE|LINK|META|TITLE|TEMPLATE)$/;
+  var reduce = window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+  /* ---------- ?only=<id>: show one board, nothing else (screenshots) ---------- */
+  var only = q.get('only');
+  if (only) {
+    var target = all.filter(function (b) { return b.dataset.board === only; })[0];
+    if (target) {
+      all.forEach(function (b) { if (b !== target) b.style.display = 'none'; });
+      for (var n = target; n && n !== body; n = n.parentElement) {
+        [].forEach.call(n.parentElement.children, function (s) { if (s !== n && !SKIP.test(s.tagName)) s.style.display = 'none'; });
+      }
+      root.dataset.cv = 'only';
+    }
+    return;
+  }
+  if (q.get('flat')) { root.dataset.cv = 'flat'; return; }
+
+  /* ---------- structure: world = lowest common ancestor of the boards ---------- */
+  function lca(els) {
+    var a = els[0].parentElement;
+    while (a && !els.every(function (e) { return a.contains(e); })) a = a.parentElement;
+    return a;
+  }
+  var A = lca(all);
+  if (!A || A === body || A === root) {
+    A = doc.createElement('div');
+    all[0].parentElement.insertBefore(A, all[0]);
+    all.forEach(function (b) { A.appendChild(b); });
+  }
+  var cs0 = getComputedStyle(body), pageBg = cs0.backgroundColor, pageFg = cs0.color;
+  var pageBgOrig = pageBg;
+  if (/rgba\(0, 0, 0, 0\)|transparent/.test(pageBgOrig)) pageBgOrig = getComputedStyle(root).backgroundColor;
+  if (/rgba\(0, 0, 0, 0\)|transparent/.test(pageBgOrig)) pageBgOrig = '#ffffff';
+  pageBg = '#0f1211'; pageFg = 'rgb(214, 220, 217)';
+
+  var chain = [];
+  for (var c = A; c && c !== body; c = c.parentElement) chain.push(c);
+  var chrome = [];
+  chain.forEach(function (nd) {
+    [].forEach.call(nd.parentElement.children, function (s) {
+      if (s !== nd && chain.indexOf(s) < 0 && !SKIP.test(s.tagName) && chrome.indexOf(s) < 0) chrome.push(s);
+    });
+  });
+
+  /* ---------- CSS ---------- */
+  var css = [
+    'html.cv,html.cv body{margin:0!important;padding:0!important;height:100%!important;overflow:hidden!important;overscroll-behavior:none;background:' + pageBg + '!important;touch-action:none}',
+    '.cv-anc{position:fixed!important;inset:0!important;width:auto!important;height:auto!important;max-width:none!important;max-height:none!important;margin:0!important;padding:0!important;overflow:hidden!important;border:0!important;background:transparent!important;transform:none!important;display:block!important}',
+    '.cv-world{position:absolute!important;left:0!important;top:0!important;margin:0!important;padding:48px!important;max-width:none!important;transform-origin:0 0;will-change:transform;box-sizing:content-box!important}',
+    '.cv-world.cv-anim{transition:transform .26s cubic-bezier(.2,.8,.2,1)}',
+    '.cv-world>*{max-width:none}',
+    '.cv-board-head{display:flex;align-items:center;gap:8px}',
+    '.cv-tools{margin-left:auto;display:inline-flex;gap:4px}',
+    '.cv-btn{all:unset;box-sizing:border-box;display:inline-grid;place-items:center;width:28px;height:28px;border-radius:7px;cursor:pointer;opacity:.7;color:inherit}',
+    '.cv-btn:hover,.cv-btn:focus-visible{opacity:1;background:rgba(127,127,127,.22)}',
+    '.cv-btn svg{width:16px;height:16px;stroke:currentColor;fill:none;stroke-width:1.6;stroke-linecap:round;stroke-linejoin:round}',
+    '.cv-meta,.cv-meta *{color:#aab3af!important}.cv-meta b,.cv-meta strong,.cv-board-head b{color:#e6ebe8!important}.cv-meta code{background:rgba(255,255,255,.08)!important}',
+    '.cv-art{box-shadow:0 8px 40px rgba(0,0,0,.45)!important;border-color:rgba(255,255,255,.08)!important}',
+    'body.cv-focus [data-board]:not(.cv-on){opacity:.18;transition:opacity .2s}',
+    '[data-board]{transition:opacity .2s}',
+    '#cv-hud{position:fixed;left:12px;top:12px;z-index:30;max-width:min(420px,calc(100vw - 24px));max-height:calc(100vh - 90px);overflow:auto;box-sizing:border-box;padding:12px 14px;border-radius:12px;border:1px solid rgba(127,127,127,.35);background:' + pageBg + ';color:' + pageFg + ';font:13px/1.5 system-ui,sans-serif;box-shadow:0 6px 24px rgba(0,0,0,.25)}',
+    '#cv-hud.cv-min{padding:6px 10px;cursor:pointer}#cv-hud.cv-min>*:not(.cv-hud-t){display:none!important}',
+    '#cv-hud,#cv-hud *{color:#d6dcd9!important}#cv-hud a{text-decoration:none}#cv-hud button{border-color:#3a4240!important}#cv-hud h1{font-size:16px!important;margin:0 0 4px!important}#cv-hud .cv-hud-t{display:flex;align-items:center;gap:8px;margin:0 0 6px;font-weight:600;font-size:12px;opacity:.8}#cv-hud.cv-min .cv-hud-t{margin:0}',
+    '#cv-hud>*{margin-inline:0!important;max-width:none!important}',
+    '#cv-bar{position:fixed;left:50%;bottom:14px;transform:translateX(-50%);z-index:31;display:flex;align-items:center;gap:2px;padding:4px;border-radius:12px;background:rgba(18,20,19,.94);color:#e6e9e7;border:1px solid #2d3331;font:12px system-ui,sans-serif;box-shadow:0 6px 24px rgba(0,0,0,.35)}',
+    '#cv-bar .cv-btn{width:32px;height:32px;opacity:.9}#cv-bar .cv-zoom{min-width:48px;text-align:center;font-variant-numeric:tabular-nums;opacity:.85}',
+    '#cv-bar .cv-txt{all:unset;box-sizing:border-box;padding:0 10px;height:32px;line-height:32px;border-radius:7px;cursor:pointer;opacity:.9;font:12px/32px system-ui,sans-serif}#cv-bar .cv-txt:hover,#cv-bar .cv-txt:focus-visible{background:rgba(255,255,255,.12)}',
+    '#cv-bar .cv-sep{width:1px;height:18px;background:#2d3331;margin:0 4px}',
+    '#cv-list{position:fixed;left:50%;bottom:62px;transform:translateX(-50%);z-index:32;max-height:50vh;width:min(360px,calc(100vw - 24px));overflow:auto;padding:6px;border-radius:12px;background:rgba(18,20,19,.97);color:#e6e9e7;border:1px solid #2d3331;font:13px system-ui,sans-serif;box-shadow:0 10px 30px rgba(0,0,0,.4)}',
+    '#cv-list button{all:unset;box-sizing:border-box;display:flex;width:100%;gap:10px;padding:7px 10px;border-radius:7px;cursor:pointer}#cv-list button:hover,#cv-list button:focus-visible{background:rgba(255,255,255,.12)}#cv-list small{margin-left:auto;opacity:.55;font-variant-numeric:tabular-nums}',
+    '#cv-hint{position:fixed;right:12px;bottom:14px;z-index:30;font:11px system-ui,sans-serif;color:' + pageFg + ';opacity:.5;max-width:40vw;text-align:right}',
+    '@media (max-width:640px){#cv-hint{display:none}}'
+  ].join('\n');
+  var st = doc.createElement('style'); st.id = 'cv-runtime-style'; st.textContent = css; doc.head.appendChild(st);
+
+  root.classList.add('cv');
+  chain.forEach(function (nd, i) { nd.classList.add(i === 0 ? 'cv-world' : 'cv-anc'); });
+  if (!all.length) return;
+  if (getComputedStyle(A).display === 'block') { A.style.display = 'flex'; A.style.flexWrap = 'wrap'; A.style.alignItems = 'flex-start'; A.style.gap = '56px 40px'; }
+  var area = 0;
+  all.forEach(function (b) { var r = b.getBoundingClientRect(); area += (r.width + 40) * (r.height + 80); });
+  var W = Math.max(1400, Math.round(Math.sqrt(area * (innerWidth / Math.max(400, innerHeight))) * 1.08));
+  A.style.width = W + 'px';
+
+  /* ---------- HUD (page chrome moved here), toolbar ---------- */
+  var hud = doc.createElement('div'); hud.id = 'cv-hud';
+  var hudT = doc.createElement('div'); hudT.className = 'cv-hud-t'; hudT.innerHTML = '<span>Canvas · ' + all.length + ' tahta</span><span style="margin-left:auto;opacity:.6">▾</span>';
+  hud.appendChild(hudT); chrome.forEach(function (s) { hud.appendChild(s); });
+  hudT.addEventListener('click', function () { hud.classList.toggle('cv-min'); });
+  body.appendChild(hud);
+  hud.classList.add('cv-min');
+
+  var ICON = {
+    expand: '<svg viewBox="0 0 16 16"><path d="M9.5 2.5h4v4M6.5 13.5h-4v-4M13.5 2.5 9 7M2.5 13.5 7 9"/></svg>',
+    dl: '<svg viewBox="0 0 16 16"><path d="M8 2.5v7.5M4.8 7 8 10.2 11.2 7M3 13.5h10"/></svg>',
+    minus: '<svg viewBox="0 0 16 16"><path d="M3.5 8h9"/></svg>',
+    plus: '<svg viewBox="0 0 16 16"><path d="M3.5 8h9M8 3.5v9"/></svg>',
+    fit: '<svg viewBox="0 0 16 16"><path d="M2.5 6V2.5H6M10 2.5h3.5V6M13.5 10v3.5H10M6 13.5H2.5V10"/></svg>'
+  };
+  var bar = doc.createElement('div'); bar.id = 'cv-bar'; bar.setAttribute('role', 'toolbar'); bar.setAttribute('aria-label', 'Canvas');
+  bar.innerHTML = '<button class="cv-btn" data-a="out" title="Uzaklaştır (-)">' + ICON.minus + '</button><span class="cv-zoom" id="cv-z">100%</span><button class="cv-btn" data-a="in" title="Yakınlaştır (+)">' + ICON.plus + '</button><span class="cv-sep"></span><button class="cv-btn" data-a="fit" title="Hepsini sığdır (0)">' + ICON.fit + '</button><button class="cv-txt" data-a="one" title="%100 (1)">1:1</button><span class="cv-sep"></span><button class="cv-txt" data-a="list" title="Tahtalar">Tahtalar</button><button class="cv-txt" data-a="wheel" title="Tekerlek davranışı">Tekerlek: kaydır</button>';
+  body.appendChild(bar);
+  var hint = doc.createElement('div'); hint.id = 'cv-hint'; hint.textContent = 'Sürükle: gez · Ctrl+tekerlek / sıkıştır: yakınlaştır · çift tık: hepsi · F: odakla';
+  body.appendChild(hint);
+  var list = null;
+
+  /* ---------- boards: header + tools ---------- */
+  all.forEach(function (b) {
+    var big = null, ba = 0;
+    [].forEach.call(b.children, function (c) { var r = c.getBoundingClientRect(), a = r.width * r.height; if (a > ba) { ba = a; big = c; } });
+    [].forEach.call(b.children, function (c) { c.classList.add(c === big ? 'cv-art' : 'cv-meta'); });
+  });
+  function titleOf(b) {
+    if (b.dataset.title) return b.dataset.title;
+    var h = b.querySelector(':scope > header b, :scope > header, :scope > h2, :scope > h3');
+    return (h && h.textContent.trim().split('\n')[0].slice(0, 60)) || b.dataset.board;
+  }
+  all.forEach(function (b) {
+    var h = b.querySelector(':scope > header');
+    if (!h) { h = doc.createElement('header'); h.textContent = titleOf(b); h.style.cssText = 'font:600 13px system-ui,sans-serif;margin-bottom:8px'; b.insertBefore(h, b.firstChild); }
+    h.classList.add('cv-board-head');
+    var t = doc.createElement('span'); t.className = 'cv-tools';
+    t.innerHTML = '<button class="cv-btn" data-a="focus" title="Genişlet (F)" aria-label="Genişlet">' + ICON.expand + '</button><button class="cv-btn" data-a="dl" title="Tahtayı HTML olarak indir" aria-label="İndir">' + ICON.dl + '</button>';
+    h.appendChild(t);
+    h.addEventListener('dblclick', function (e) { if (!e.target.closest('.cv-btn')) focusBoard(b); });
+  });
+
+  /* ---------- view math ---------- */
+  var v = { x: 0, y: 0, k: 1 }, rects = [], vw = root.clientWidth || innerWidth, vh = root.clientHeight || innerHeight, focused = null, wheelZoom = false;
+  var LS = 'cv:' + location.pathname;
+  function unscroll() { chain.concat([root, body]).forEach(function (n) { if (n.scrollLeft || n.scrollTop) { n.scrollLeft = 0; n.scrollTop = 0; } }); }
+  doc.addEventListener('scroll', unscroll, true); window.addEventListener('hashchange', function () { unscroll(); var id = location.hash.slice(1), b = all.filter(function (x) { return x.dataset.board === id; })[0]; if (b) focusBoard(b); });
+  function apply(anim) {
+    unscroll();
+    if (anim && !reduce) A.classList.add('cv-anim'); else A.classList.remove('cv-anim');
+    A.style.transform = 'translate(' + v.x + 'px,' + v.y + 'px) scale(' + v.k + ')';
+    root.style.backgroundImage = 'radial-gradient(circle, ' + dot() + ' 1px, transparent 1.4px)';
+    var s = Math.max(8, 28 * v.k); root.style.backgroundSize = s + 'px ' + s + 'px'; root.style.backgroundPosition = v.x + 'px ' + v.y + 'px';
+    var z = doc.getElementById('cv-z'); if (z) z.textContent = Math.round(v.k * 100) + '%';
+  }
+  var dotC = null;
+  function dot() { if (!dotC) { var m = /\d+/g, n = (pageFg.match(m) || [200, 200, 200]); dotC = 'rgba(' + n[0] + ',' + n[1] + ',' + n[2] + ',.13)'; } return dotC; }
+  function measure() {
+    var keep = A.style.transform, kc = A.className; A.classList.remove('cv-anim'); A.style.transform = 'none';
+    var o = A.getBoundingClientRect(); rects = all.map(function (b) { var r = b.getBoundingClientRect(); return { el: b, x: r.left - o.left, y: r.top - o.top, w: r.width, h: r.height }; });
+    A.style.transform = keep; A.className = kc;
+  }
+  function bbox() {
+    var x0 = 1e9, y0 = 1e9, x1 = -1e9, y1 = -1e9;
+    rects.forEach(function (r) { x0 = Math.min(x0, r.x); y0 = Math.min(y0, r.y); x1 = Math.max(x1, r.x + r.w); y1 = Math.max(y1, r.y + r.h); });
+    return { x: x0, y: y0, w: x1 - x0, h: y1 - y0 };
+  }
+  function fitRect(r, pad, max) {
+    pad = pad == null ? 56 : pad; var k = Math.min((vw - pad * 2) / r.w, (vh - pad * 2) / r.h, max || 1);
+    k = Math.max(0.04, k); v.k = k; v.x = (vw - r.w * k) / 2 - r.x * k; v.y = (vh - r.h * k) / 2 - r.y * k;
+  }
+  function fitAll(anim) { exitFocus(true); fitRect(bbox(), 72, 1); apply(anim); save(); }
+  function rectOf(b) { return rects.filter(function (r) { return r.el === b; })[0]; }
+  function focusBoard(b, noDim, instant) {
+    var r = rectOf(b); if (!r) return;
+    focused = b; all.forEach(function (x) { x.classList.toggle('cv-on', x === b); });
+    body.classList.toggle('cv-focus', !noDim);
+    var head = 40, rr = { x: r.x, y: r.y - 0, w: r.w, h: r.h + head };
+    fitRect(rr, 64, 2); apply(!instant); save();
+    try { history.replaceState(null, '', '#' + b.dataset.board); } catch (e) {}
+  }
+  function exitFocus(silent) {
+    if (!focused) return; focused = null; body.classList.remove('cv-focus'); all.forEach(function (x) { x.classList.remove('cv-on'); });
+    try { history.replaceState(null, '', location.pathname + location.search); } catch (e) {}
+    if (!silent) fitAll(true);
+  }
+  function zoomAt(cx, cy, f, anim) {
+    var nk = Math.min(4, Math.max(0.04, v.k * f)), r = nk / v.k;
+    v.x = cx - (cx - v.x) * r; v.y = cy - (cy - v.y) * r; v.k = nk; apply(anim); save();
+  }
+  function save() { try { localStorage.setItem(LS, JSON.stringify(v)); } catch (e) {} }
+  function step(dir) {
+    if (!focused) return; var i = all.indexOf(focused), j = Math.min(all.length - 1, Math.max(0, i + dir)); if (j !== i) focusBoard(all[j]);
+  }
+
+  /* ---------- download one board ---------- */
+  function download(b) {
+    var clone = b.cloneNode(true);
+    [].forEach.call(clone.querySelectorAll('.cv-tools'), function (n) { n.remove(); });
+    clone.classList.remove('cv-on'); clone.style.opacity = '';
+    var styles = [].map.call(doc.querySelectorAll('style,link[rel=stylesheet]'), function (n) { return n.id === 'cv-runtime-style' ? '' : n.outerHTML; }).join('\n');
+    var theme = root.getAttribute('data-theme') ? ' data-theme="' + root.getAttribute('data-theme') + '"' : '';
+    var html = '<!doctype html><html lang="' + (root.lang || 'tr') + '"' + theme + '><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>' + titleOf(b).replace(/</g, '&lt;') + '</title>' + styles + '<style>html,body{margin:0;padding:24px;background:' + pageBgOrig + '!important;height:auto!important;overflow:auto!important}</style></head><body>' + clone.outerHTML + '</body></html>';
+    var a = doc.createElement('a'); a.href = URL.createObjectURL(new Blob([html], { type: 'text/html' }));
+    a.download = (b.dataset.board || 'board') + '.html'; doc.body.appendChild(a); a.click(); setTimeout(function () { URL.revokeObjectURL(a.href); a.remove(); }, 500);
+  }
+
+  /* ---------- list popover ---------- */
+  function toggleList() {
+    if (list) { list.remove(); list = null; return; }
+    list = doc.createElement('div'); list.id = 'cv-list';
+    list.innerHTML = all.map(function (b, i) { return '<button data-i="' + i + '"><span>' + titleOf(b).replace(/</g, '&lt;') + '</span><small>' + Math.round(rectOf(b).w) + '×' + Math.round(rectOf(b).h) + '</small></button>'; }).join('');
+    list.addEventListener('click', function (e) { var bt = e.target.closest('button'); if (!bt) return; focusBoard(all[+bt.dataset.i], true); list.remove(); list = null; });
+    body.appendChild(list);
+  }
+
+  /* ---------- events ---------- */
+  doc.addEventListener('click', function (e) {
+    var bt = e.target.closest('.cv-btn,.cv-txt'); if (!bt) { if (list && !e.target.closest('#cv-list')) { list.remove(); list = null; } return; }
+    var a = bt.dataset.a, b = bt.closest('[data-board]');
+    if (a === 'focus') { if (focused === b) fitAll(true); else focusBoard(b); }
+    else if (a === 'dl') download(b);
+    else if (a === 'in') zoomAt(vw / 2, vh / 2, 1.25, true);
+    else if (a === 'out') zoomAt(vw / 2, vh / 2, 0.8, true);
+    else if (a === 'fit') fitAll(true);
+    else if (a === 'one') { exitFocus(true); zoomAt(vw / 2, vh / 2, 1 / v.k, true); }
+    else if (a === 'list') toggleList();
+    else if (a === 'wheel') { wheelZoom = !wheelZoom; bt.textContent = 'Tekerlek: ' + (wheelZoom ? 'yakınlaştır' : 'kaydır'); }
+  });
+  doc.addEventListener('wheel', function (e) {
+    if (e.target.closest('#cv-hud,#cv-list')) return;
+    var inScroll = false; for (var n = e.target; n && n !== body; n = n.parentElement) { if (n.scrollHeight > n.clientHeight + 2 && /(auto|scroll)/.test(getComputedStyle(n).overflowY) && !n.classList.contains('cv-anc')) { inScroll = true; break; } }
+    if (inScroll && !e.ctrlKey) return;
+    e.preventDefault();
+    var dy = e.deltaMode === 1 ? e.deltaY * 33 : e.deltaY, dx = e.deltaMode === 1 ? e.deltaX * 33 : e.deltaX;
+    if (e.ctrlKey || e.metaKey || wheelZoom) zoomAt(e.clientX, e.clientY, Math.exp(-dy * (e.ctrlKey ? 0.01 : 0.0016)));
+    else { if (e.shiftKey && !dx) { dx = dy; dy = 0; } v.x -= dx; v.y -= dy; apply(); save(); }
+    exitFocusDim();
+  }, { passive: false });
+  function exitFocusDim() { if (focused) { focused = null; body.classList.remove('cv-focus'); all.forEach(function (x) { x.classList.remove('cv-on'); }); } }
+
+  var ptrs = {}, drag = null, pinch = null, space = false;
+  function noPan(t) { return t.closest('#cv-hud,#cv-bar,#cv-list,.cv-btn,a,button,input,select,textarea,summary,label,[contenteditable]'); }
+  doc.addEventListener('pointerdown', function (e) {
+    if (noPan(e.target)) return;
+    var inBoard = e.target.closest('.artboard');
+    if (inBoard && !(space || e.button === 1 || e.altKey) && e.pointerType === 'mouse') return;
+    if (e.button > 1) return;
+    ptrs[e.pointerId] = { x: e.clientX, y: e.clientY };
+    var ids = Object.keys(ptrs);
+    if (ids.length === 2) { var p = ids.map(function (i) { return ptrs[i]; }); pinch = { d: Math.hypot(p[0].x - p[1].x, p[0].y - p[1].y), cx: (p[0].x + p[1].x) / 2, cy: (p[0].y + p[1].y) / 2 }; drag = null; }
+    else { drag = { x: e.clientX, y: e.clientY, vx: v.x, vy: v.y, moved: false }; }
+    doc.body.style.cursor = 'grabbing'; e.preventDefault();
+  });
+  window.addEventListener('pointermove', function (e) {
+    if (!ptrs[e.pointerId]) return; ptrs[e.pointerId] = { x: e.clientX, y: e.clientY };
+    var ids = Object.keys(ptrs);
+    if (ids.length >= 2 && pinch) {
+      var p = ids.slice(0, 2).map(function (i) { return ptrs[i]; }), d = Math.hypot(p[0].x - p[1].x, p[0].y - p[1].y), cx = (p[0].x + p[1].x) / 2, cy = (p[0].y + p[1].y) / 2;
+      v.x += cx - pinch.cx; v.y += cy - pinch.cy; zoomAt(cx, cy, d / pinch.d); pinch.d = d; pinch.cx = cx; pinch.cy = cy; exitFocusDim();
+    } else if (drag) {
+      var dx = e.clientX - drag.x, dy = e.clientY - drag.y; if (!drag.moved && Math.hypot(dx, dy) < 3) return; drag.moved = true;
+      v.x = drag.vx + dx; v.y = drag.vy + dy; apply(); exitFocusDim();
+    }
+  });
+  function up(e) { delete ptrs[e.pointerId]; if (Object.keys(ptrs).length < 2) pinch = null; if (!Object.keys(ptrs).length) { drag && save(); drag = null; doc.body.style.cursor = ''; } }
+  window.addEventListener('pointerup', up); window.addEventListener('pointercancel', up);
+  doc.addEventListener('dblclick', function (e) { if (!noPan(e.target) && !e.target.closest('.artboard') && !e.target.closest('[data-board]')) fitAll(true); });
+  doc.addEventListener('keydown', function (e) {
+    if (/INPUT|TEXTAREA|SELECT/.test(e.target.tagName) || e.target.isContentEditable || e.ctrlKey || e.metaKey) return;
+    var k = e.key;
+    if (k === ' ') { space = true; e.preventDefault(); }
+    else if (k === '0') fitAll(true);
+    else if (k === '1') { exitFocus(true); zoomAt(vw / 2, vh / 2, 1 / v.k, true); }
+    else if (k === '+' || k === '=') zoomAt(vw / 2, vh / 2, 1.25, true);
+    else if (k === '-' || k === '_') zoomAt(vw / 2, vh / 2, 0.8, true);
+    else if (k === 'Escape') { if (list) { list.remove(); list = null; } else if (focused) fitAll(true); }
+    else if (k === 'f' || k === 'F') { var cur = focused || nearestBoard(); if (focused) fitAll(true); else focusBoard(cur); }
+    else if (k === 'ArrowRight' || k === 'ArrowDown' || k === 'PageDown') { if (focused) { step(1); e.preventDefault(); } else { v.x -= (k === 'ArrowRight' ? 80 : 0); v.y -= (k === 'ArrowDown' ? 80 : 0); apply(); } }
+    else if (k === 'ArrowLeft' || k === 'ArrowUp' || k === 'PageUp') { if (focused) { step(-1); e.preventDefault(); } else { v.x += (k === 'ArrowLeft' ? 80 : 0); v.y += (k === 'ArrowUp' ? 80 : 0); apply(); } }
+  });
+  doc.addEventListener('keyup', function (e) { if (e.key === ' ') space = false; });
+  function nearestBoard() {
+    var cx = (vw / 2 - v.x) / v.k, cy = (vh / 2 - v.y) / v.k, best = all[0], bd = 1e18;
+    rects.forEach(function (r) { var d = Math.hypot(r.x + r.w / 2 - cx, r.y + r.h / 2 - cy); if (d < bd) { bd = d; best = r.el; } });
+    return best;
+  }
+  var rz = null;
+  window.addEventListener('resize', function () { clearTimeout(rz); rz = setTimeout(function () { vw = root.clientWidth || innerWidth; vh = root.clientHeight || innerHeight; if (focused) focusBoard(focused, false, true); }, 80); });
+
+  /* ---------- boot ---------- */
+  function boot() {
+    measure(); vw = root.clientWidth || innerWidth; vh = root.clientHeight || innerHeight;
+    var id = (location.hash || '').slice(1), hit = all.filter(function (b) { return b.dataset.board === id; })[0], saved = null;
+    try { saved = JSON.parse(localStorage.getItem(LS) || 'null'); } catch (e) {}
+    var qv = (q.get('view') || '').split(',').map(Number);
+    if (qv.length === 3 && qv.every(isFinite) && qv[2] > 0) { v = { x: qv[0], y: qv[1], k: qv[2] }; apply(false); }
+    else if (hit) focusBoard(hit, false, true);
+    else if (saved && isFinite(saved.k) && !q.get('cvtest')) { v = saved; apply(); }
+    else fitAll(false);
+    root.dataset.cv = 'ready'; root.dataset.cvBoards = String(all.length);
+    (function () { var hr = hit ? rectOf(hit) : rects[0]; root.dataset.cvDbg = JSON.stringify({ rect: hr && [hr.x, hr.y, hr.w, hr.h].map(Math.round), v: [v.x, v.y, v.k].map(function (n) { return +n.toFixed(2); }), vw: vw, vh: vh, actual: hit ? (function () { var a = hit.getBoundingClientRect(); return [a.left, a.top, a.width, a.height].map(Math.round); })() : null, cw: root.clientWidth, iw: innerWidth, W: W, aw: A.offsetWidth, dispA: getComputedStyle(A).display, wrap: getComputedStyle(A).flexWrap, meas: rects.slice(0, 5).map(function (r) { return Math.round(r.x); }), now: all.slice(0, 5).map(function (b) { return Math.round((b.getBoundingClientRect().left - v.x) / v.k); }) }); })();
+    window.__canvas = { view: function () { return v; }, fit: fitAll, focus: function (id2) { var b = all.filter(function (x) { return x.dataset.board === id2; })[0]; if (b) focusBoard(b); }, zoomAt: zoomAt, boards: all, rects: function () { return rects; } };
+    if (q.get('cvtest') || q.get('cvrects')) root.dataset.cvRects = JSON.stringify(rects.map(function (r) { return [r.el.dataset.board, Math.round(r.x), Math.round(r.y), Math.round(r.w), Math.round(r.h)]; }));
+    if (q.get('cvtest')) {
+      fitAll(false); var k0 = v.k; zoomAt(300, 200, 2); var k1 = v.k; fitAll(false); focusBoard(all[0], false, true); var f = v.k; fitAll(false);
+      var hr = hit ? rectOf(hit) : rects[0]; root.dataset.cvDbg = JSON.stringify({ rect: hr && [hr.x, hr.y, hr.w, hr.h].map(Math.round), v: [v.x, v.y, v.k].map(function (n) { return +n.toFixed(2); }), vw: vw, vh: vh });
+      root.dataset.cvTest = JSON.stringify({ k0: +k0.toFixed(3), zoomed: +(k1 / k0).toFixed(3), focusK: +f.toFixed(3), boards: all.length, world: Math.round(W), hud: chrome.length });
+    }
+  }
+  var go = function () { setTimeout(boot, 20); };
+  function start() { if (doc.fonts && doc.fonts.ready) { var done = false, once = function () { if (!done) { done = true; go(); } }; doc.fonts.ready.then(once); setTimeout(once, 700); } else go(); }
+  if (doc.readyState === 'complete') start(); else window.addEventListener('load', start);
+})();
+
+</script>
+<!-- /cv-runtime -->

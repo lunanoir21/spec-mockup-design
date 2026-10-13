@@ -1,0 +1,1880 @@
+<!doctype html>
+<html lang="tr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Kitap Defteri — ana ekran tasarım seçenekleri</title>
+<!-- CHANGELOG
+  r1: scaffold (new-canvas.py)
+  r2: tokens pasted (palette.py hue 40 / warm / mono + scales.py web-normal-15),
+      3 options filled: Kütüphane Defteri / Okuma Odası / Kenar Notları,
+      state boards, night re-skin, motion, tokens, type board
+  r3: screenshot review pass — "body.only .sub" was hiding the in-app summary line
+      (renamed to .a-sum), only-mode header hidden so 860px boards fit the 900px
+      window, ghost buttons no longer wrap, night board got its 6th row, mobile list
+      filled + sparkline replaced by a monthly bar, token board 680->520, C boards got
+      finished-book rows, motion board got a 4th frame. slop-lint 100/100.
+-->
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Literata:ital,opsz,wght@0,7..72,400;0,7..72,500;0,7..72,600;1,7..72,400&family=IBM+Plex+Sans:wght@400;500;600&family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&family=Fraunces:opsz,wght@9..144,400;9..144,600&family=Newsreader:opsz,wght@6..72,400;6..72,500&family=Public+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+/* ============================================================
+   TOKENS — palette.py (OKLCH, hue 40, warm, mono) + scales.py
+   ============================================================ */
+:root{
+  /* gündüz — "kâğıt" */
+  --bg:#faf1ee; --surface:#fff8f5; --raised:#fffdfc; --line:#e0d5d1;
+  --text:#292220; --muted:#726662; --accent:#944123; --accent-soft:#fee0d6;
+  --on-accent:#fff8f5; --danger:#9a3932; --warn:#7e5403; --ok:#2b6d3d; --info:#11658c;
+  /* gece — aynı üreticiden, ters çevirme değil */
+  --d-bg:#130e0c; --d-surface:#181210; --d-raised:#1d1715; --d-line:#292220;
+  --d-text:#e9dfdb; --d-muted:#a89b97; --d-accent:#eb9070; --d-accent-soft:#351d14;
+  --d-on-accent:#130e0c; --d-danger:#f3887d; --d-warn:#d3a158; --d-ok:#7abd88; --d-info:#6ab5df;
+  /* ölçek (scales.py --target web --density normal --base 15 --ratio 1.2) */
+  --fs-2xs:11px; --lh-2xs:1.5;
+  --fs-xs:12.5px; --lh-xs:1.5;
+  --fs-s:15px; --lh-s:1.5;
+  --fs-m:18px; --lh-m:1.3;
+  --fs-l:21.5px; --lh-l:1.3;
+  --fs-xl:26px; --lh-xl:1.15;
+  --fs-2xl:31px; --lh-2xl:1.15;
+  --sp-1:4px; --sp-2:8px; --sp-3:12px; --sp-4:16px; --sp-5:24px; --sp-6:32px; --sp-7:48px; --sp-8:64px;
+  --radius-s:4px; --radius-m:9px; --radius-l:15px; --radius-pill:999px;
+  --dur-micro:120ms; --dur-small:200ms; --dur-large:300ms; --dur-xl:450ms;
+  --ease-out:cubic-bezier(.2,.8,.2,1); --ease-in:cubic-bezier(.4,0,1,1); --ease-inout:cubic-bezier(.65,0,.35,1);
+  --stroke:1.5px; --icon-s:16px; --icon-m:20px; --icon-l:24px;
+  --shadow-row:0 1px 0 rgba(41,34,32,.05), 0 8px 18px -12px rgba(41,34,32,.35);
+  --shadow-pop:0 1px 0 rgba(41,34,32,.06), 0 18px 34px -20px rgba(41,34,32,.45);
+  --font-ui:"IBM Plex Sans","Noto Sans",sans-serif;
+  --font-display:"Literata","Noto Serif",serif;
+}
+:root[data-theme="gece"]{
+  --bg:var(--d-bg); --surface:var(--d-surface); --raised:var(--d-raised); --line:var(--d-line);
+  --text:var(--d-text); --muted:var(--d-muted); --accent:var(--d-accent); --accent-soft:var(--d-accent-soft);
+  --on-accent:var(--d-on-accent); --danger:var(--d-danger); --warn:var(--d-warn); --ok:var(--d-ok); --info:var(--d-info);
+  color-scheme:dark;
+}
+.skin-gece{
+  --bg:var(--d-bg); --surface:var(--d-surface); --raised:var(--d-raised); --line:var(--d-line);
+  --text:var(--d-text); --muted:var(--d-muted); --accent:var(--d-accent); --accent-soft:var(--d-accent-soft);
+  --on-accent:var(--d-on-accent); --danger:var(--d-danger); --warn:var(--d-warn); --ok:var(--d-ok); --info:var(--d-info);
+}
+/* kanvas iskeleti (tasarımın parçası değil) */
+*{box-sizing:border-box}
+html{background:var(--canvas,#efe8e1)}
+body{margin:0;font:400 var(--fs-s)/1.5 var(--font-ui);color:var(--text)}
+.shell{padding:24px 16px 80px;max-width:1700px;margin:0 auto}
+h1{font:600 20px/1.2 var(--font-ui);margin:0 0 4px;letter-spacing:-.01em}
+.sub{color:var(--chrome);margin:0 0 16px;font-size:13px}
+nav.index{display:flex;flex-wrap:wrap;gap:6px 12px;margin:0 0 24px;padding:0 0 12px;border-bottom:1px solid #c9c2b2}
+nav.index a{color:var(--text);text-decoration:none;font-size:13px;border-bottom:1px solid transparent}
+nav.index a:hover{border-bottom-color:currentColor}
+.themes{display:flex;gap:8px;margin:0 0 16px;flex-wrap:wrap}
+.themes button{font:inherit;font-size:12px;padding:4px 10px;border:1px solid #b8b1a0;background:transparent;border-radius:var(--radius-pill);cursor:pointer;color:var(--text)}
+.themes button[aria-pressed=true]{background:var(--text);color:var(--bg);border-color:var(--text)}
+.grid{display:flex;flex-wrap:wrap;gap:32px 28px;align-items:flex-start}
+.board{display:flex;flex-direction:column;gap:8px;max-width:100%}
+.board>header{display:flex;gap:8px;align-items:baseline;font-size:12px;color:var(--chrome)}
+.board>header b{color:var(--text);font-weight:600}
+.board>header code{font:11px var(--font-ui);opacity:.8}
+.artboard{background:var(--bg);color:var(--text);font:400 var(--fs-s)/1.5 var(--font-ui);border:1px solid #c9c2b2;overflow:hidden;position:relative}
+.note{max-width:var(--w,520px);font-size:12px;color:var(--chrome)}
+body.only .shell>h1,body.only .sub,body.only nav.index,body.only .themes{display:none}
+body.only .shell{padding:8px}
+body.only .board>header{display:none}
+body.only .board:not(.on){display:none}
+@media (max-width:600px){.artboard{max-width:100%}}
+@media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
+
+/* ============================================================
+   ORTAK PARÇALAR
+   ============================================================ */
+.ico{width:var(--icon-s);height:var(--icon-s);fill:none;stroke:currentColor;stroke-width:var(--stroke);stroke-linecap:round;stroke-linejoin:round;flex:none;display:block}
+.ico-l{width:var(--icon-l);height:var(--icon-l)}
+.irow{display:flex;align-items:center;gap:var(--sp-2)}
+.num{font-variant-numeric:tabular-nums;font-feature-settings:"tnum"}
+.serif{font-family:var(--font-display)}
+.mut{color:var(--muted)}
+.track{position:relative;height:3px;background:var(--line);border-radius:var(--radius-pill);overflow:visible}
+.track>i{display:block;height:100%;background:var(--accent);border-radius:var(--radius-pill)}
+.track>i.is-ok{background:var(--ok)}
+.notch{position:absolute;top:-4px;width:2px;height:11px;background:var(--accent);border-radius:var(--radius-s)}
+.chip{display:inline-flex;align-items:center;gap:6px;padding:4px 10px;border:1px solid var(--line);border-radius:var(--radius-pill);font-size:var(--fs-2xs);color:var(--muted);background:var(--surface)}
+.chip.on{background:var(--accent-soft);border-color:transparent;color:var(--accent)}
+.btn{display:inline-flex;align-items:center;gap:8px;height:40px;padding:0 16px;border-radius:var(--radius-m);border:1px solid var(--line);background:var(--surface);color:var(--text);font:500 var(--fs-xs)/1 var(--font-ui)}
+.btn-p{background:var(--accent);border-color:var(--accent);color:var(--on-accent)}
+.btn:focus-visible,.row:focus-visible,.tab:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.cover{width:40px;height:56px;border:1px solid var(--line);border-radius:2px 5px 5px 2px;background:var(--raised);display:flex;align-items:center;justify-content:center;font-family:var(--font-display);font-size:var(--fs-m);color:var(--accent);position:relative;flex:none}
+.cover::before{content:"";position:absolute;left:4px;top:0;bottom:0;width:1px;background:var(--line)}
+.cover-l{width:52px;height:72px;font-size:var(--fs-l)}
+.hr{height:1px;background:var(--line)}
+.sec-title{font:600 var(--fs-l)/1.3 var(--font-display);letter-spacing:-.01em;margin:0}
+
+/* iskelet (loading) */
+.sk{background:var(--line);border-radius:var(--radius-s);opacity:.55}
+
+/* ============================================================
+   A · KÜTÜPHANE DEFTERİ
+   ============================================================ */
+.a{display:grid;grid-template-rows:56px 1fr;height:100%}
+.a-top{display:flex;align-items:center;gap:var(--sp-4);padding:0 var(--sp-5);border-bottom:1px solid var(--line);background:var(--surface)}
+.a-brand{font:600 var(--fs-m)/1 var(--font-display);letter-spacing:-.01em}
+.a-search{margin-left:auto;display:flex;align-items:center;gap:var(--sp-2);height:36px;padding:0 12px;border:1px solid var(--line);border-radius:var(--radius-m);background:var(--bg);color:var(--muted);font-size:var(--fs-xs);min-width:252px}
+.a-search kbd{margin-left:auto;font:11px var(--font-ui);border:1px solid var(--line);border-radius:var(--radius-s);padding:1px 5px}
+.a-body{display:grid;grid-template-columns:236px 1fr;min-height:0}
+.a-rail{border-right:1px solid var(--line);padding:var(--sp-4) var(--sp-3);display:flex;flex-direction:column;gap:var(--sp-4);background:var(--bg)}
+.a-me{display:flex;gap:10px;align-items:center;padding:0 4px}
+.a-av{width:34px;height:34px;border-radius:50%;background:var(--accent-soft);color:var(--accent);display:flex;align-items:center;justify-content:center;font-size:var(--fs-xs);font-weight:600}
+.a-nav{display:flex;flex-direction:column;gap:2px}
+.a-item{display:flex;align-items:center;gap:10px;padding:9px 10px;border-radius:var(--radius-m);font-size:var(--fs-xs);color:var(--muted)}
+.a-item.on{background:var(--accent-soft);color:var(--accent);font-weight:600}
+.a-item .n{margin-left:auto;font-variant-numeric:tabular-nums}
+.a-foot{margin-top:auto;border-top:1px solid var(--line);padding-top:var(--sp-3)}
+.a-led{display:flex;justify-content:space-between;align-items:baseline;font-size:var(--fs-xs)}
+.a-led b{font:600 var(--fs-s)/1 var(--font-ui);font-variant-numeric:tabular-nums}
+.a-spark{display:flex;align-items:flex-end;gap:3px;height:26px;margin-top:10px}
+.a-spark i{flex:1;background:var(--line);border-radius:1px 1px 0 0}
+.a-spark i.on{background:var(--accent)}
+.a-main{overflow:hidden;display:flex;flex-direction:column}
+.a-head{display:flex;align-items:flex-end;gap:var(--sp-4);padding:var(--sp-5) var(--sp-6) var(--sp-4)}
+.a-head .a-sum{margin:0 0 0 auto;color:var(--muted);font-size:var(--fs-xs)}
+.a-list{flex:1;overflow:hidden;border-top:1px solid var(--line)}
+.row{display:grid;grid-template-columns:40px 1fr 232px;gap:var(--sp-4);align-items:center;padding:var(--sp-4) var(--sp-6);border-bottom:1px solid var(--line);transition:background var(--dur-micro) var(--ease-out)}
+.row.is-hover{background:var(--raised);box-shadow:var(--shadow-row)}
+.row-title{font:500 var(--fs-s)/1.35 var(--font-display);margin:0;letter-spacing:-.005em}
+.row-meta{font-size:var(--fs-xs);color:var(--muted);margin:2px 0 9px}
+.row-sub{font-size:var(--fs-2xs);color:var(--muted);margin:8px 0 0;display:flex;gap:10px}
+.row-sub .pg{font-variant-numeric:tabular-nums;color:var(--text)}
+.row-end{display:flex;align-items:center;gap:var(--sp-3);justify-content:flex-end}
+.row-pct{font:500 var(--fs-l)/1 var(--font-display);font-variant-numeric:tabular-nums;letter-spacing:-.01em}
+.row-acts{display:none;align-items:center;gap:6px}
+.row.is-hover .row-end{display:none}
+.row.is-hover .row-acts{display:flex}
+.ghost{white-space:nowrap;display:inline-flex;align-items:center;gap:6px;height:32px;padding:0 10px;border:1px solid var(--line);border-radius:var(--radius-m);background:var(--surface);color:var(--text);font-size:var(--fs-2xs)}
+.ghost.icon-only{width:32px;padding:0;justify-content:center}
+.a-bar{display:flex;align-items:center;gap:var(--sp-3);padding:0 var(--sp-6);height:48px;border-top:1px solid var(--line);background:var(--surface);font-size:var(--fs-xs);color:var(--muted)}
+.a-bar b{color:var(--text);font-variant-numeric:tabular-nums;font-weight:600}
+.a-empty{height:100%;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:var(--sp-3);text-align:center;padding:var(--sp-6)}
+.a-empty h2{font:600 var(--fs-xl)/1.2 var(--font-display);margin:0;letter-spacing:-.01em}
+.a-empty p{margin:0;max-width:44ch;color:var(--muted);font-size:var(--fs-xs)}
+/* mobil (390) */
+.a-m{display:grid;grid-template-rows:56px 1fr 68px;height:100%}
+.a-m-top{display:flex;align-items:center;gap:var(--sp-3);padding:0 var(--sp-4);border-bottom:1px solid var(--line)}
+.a-m-list{overflow:hidden}
+.a-m-row{display:grid;grid-template-columns:1fr auto;gap:var(--sp-2);padding:var(--sp-3) var(--sp-4);border-bottom:1px solid var(--line)}
+.a-m-row h3{font:500 var(--fs-s)/1.35 var(--font-display);margin:0 0 2px}
+.a-m-row p{margin:0;font-size:var(--fs-2xs);color:var(--muted)}
+.a-m-tab{display:flex;align-items:center;justify-content:space-around;border-top:1px solid var(--line);background:var(--surface)}
+.a-m-tab div{display:flex;flex-direction:column;align-items:center;gap:4px;font-size:var(--fs-2xs);color:var(--muted);min-width:44px;padding:6px 0}
+.a-m-tab div.on{color:var(--accent)}
+
+/* ============================================================
+   B · OKUMA ODASI
+   ============================================================ */
+.b{display:grid;grid-template-rows:56px 48px 1fr;height:100%}
+.b-top{display:flex;align-items:center;gap:var(--sp-4);padding:0 var(--sp-6);border-bottom:1px solid var(--line)}
+.b-tabs{display:flex;gap:var(--sp-5);align-items:center;padding:0 var(--sp-6);border-bottom:1px solid var(--line);background:var(--surface)}
+.tab{font-size:var(--fs-xs);color:var(--muted);height:100%;display:flex;align-items:center;border-bottom:2px solid transparent}
+.tab.on{color:var(--text);font-weight:600;border-bottom-color:var(--accent)}
+.b-scroll{overflow:hidden;padding:var(--sp-6);display:flex;flex-direction:column;gap:var(--sp-5)}
+.b-hero{display:grid;grid-template-columns:1fr 236px 300px;gap:var(--sp-6);align-items:start;padding-bottom:var(--sp-5);border-bottom:1px solid var(--line)}
+.b-eyebrow{font-size:var(--fs-2xs);color:var(--muted);display:flex;align-items:center;gap:8px;margin-bottom:10px}
+.b-hero h1{font:600 var(--fs-2xl)/1.15 var(--font-display);letter-spacing:-.015em;margin:0 0 8px}
+.b-hero .byline{font-size:var(--fs-s);color:var(--muted);margin:0 0 var(--sp-4)}
+.b-meta{display:flex;gap:var(--sp-2);flex-wrap:wrap}
+.b-ring{display:flex;flex-direction:column;align-items:center;gap:10px}
+.ring-wrap{position:relative;width:196px;height:196px}
+.ring-mid{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center}
+.ring-mid b{font:600 44px/1 var(--font-display);font-variant-numeric:tabular-nums;letter-spacing:-.02em}
+.ring-mid span{font-size:var(--fs-2xs);color:var(--muted);margin-top:6px;font-variant-numeric:tabular-nums}
+.b-today{border:1px solid var(--line);border-radius:var(--radius-l);background:var(--surface);padding:var(--sp-4);display:flex;flex-direction:column;gap:var(--sp-3)}
+.b-today .big{font:600 var(--fs-xl)/1 var(--font-display);font-variant-numeric:tabular-nums;letter-spacing:-.01em}
+.b-bars{display:flex;align-items:flex-end;gap:4px;height:56px}
+.b-bars i{flex:1;background:var(--line);border-radius:2px 2px 0 0;min-height:2px}
+.b-bars i.on{background:var(--accent)}
+.b-axis{display:flex;justify-content:space-between;font-size:var(--fs-2xs);color:var(--muted);margin-top:6px}
+.shelf{display:flex;flex-direction:column}
+.shelf-head{display:flex;align-items:baseline;gap:var(--sp-3);margin-bottom:var(--sp-2)}
+.shelf-head h2{font:600 var(--fs-s)/1 var(--font-ui);margin:0}
+.shelf-head .n{font-size:var(--fs-2xs);color:var(--muted);font-variant-numeric:tabular-nums}
+.shelf-head .more{margin-left:auto;font-size:var(--fs-2xs);color:var(--accent)}
+.b-row{display:grid;grid-template-columns:1fr 190px 92px;align-items:center;gap:var(--sp-4);padding:11px 0;border-top:1px solid var(--line)}
+.b-row h3{font:500 var(--fs-s)/1.3 var(--font-display);margin:0}
+.b-row .who{font-size:var(--fs-2xs);color:var(--muted);margin:2px 0 0}
+.b-row .pct{text-align:right;font-variant-numeric:tabular-nums;font-size:var(--fs-s);font-weight:500}
+.rate{display:inline-flex;gap:2px;align-items:flex-end;height:12px}
+.rate i{width:3px;background:var(--line);border-radius:1px}
+.rate i.on{background:var(--accent)}
+.b-live{display:flex;align-items:center;gap:10px;margin-top:var(--sp-4);padding:12px 14px;background:var(--accent-soft);border-radius:var(--radius-m);font-size:var(--fs-xs)}
+.b-live b{font-variant-numeric:tabular-nums;font-weight:600}
+.b-session{border-top:1px solid var(--line);background:var(--surface);padding:var(--sp-4) var(--sp-6);display:flex;align-items:center;gap:var(--sp-3)}
+.b-input{flex:1;height:40px;border:1px solid var(--line);border-radius:var(--radius-m);background:var(--bg);display:flex;align-items:center;padding:0 12px;gap:10px;color:var(--muted);font-size:var(--fs-xs)}
+.b-skel{display:grid;grid-template-columns:1fr 236px 300px;gap:var(--sp-6);align-items:start}
+
+/* ============================================================
+   C · KENAR NOTLARI
+   ============================================================ */
+.c{display:grid;grid-template-rows:56px 1fr;height:100%}
+.c-top{display:flex;align-items:center;gap:var(--sp-3);padding:0 var(--sp-5);border-bottom:1px solid var(--line);background:var(--surface)}
+.c-sw{display:flex;align-items:center;gap:10px;min-width:360px}
+.c-sw .t{font:500 var(--fs-s)/1.3 var(--font-display)}
+.c-body{display:grid;grid-template-columns:320px 32px 1fr;min-height:0}
+.c-idx{border-right:1px solid var(--line);overflow:hidden;display:flex;flex-direction:column}
+.c-grp{font-size:var(--fs-2xs);color:var(--muted);padding:var(--sp-4) var(--sp-4) 6px;display:flex;gap:8px}
+.c-grp .n{font-variant-numeric:tabular-nums;margin-left:auto}
+.c-li{padding:10px var(--sp-4);border-bottom:1px solid var(--line);transition:background var(--dur-micro) var(--ease-out)}
+.c-li.is-on{background:var(--raised)}
+.c-li.is-hover{background:var(--raised)}
+.c-li h3{font:500 15.5px/1.35 var(--font-display);margin:0 0 1px;letter-spacing:-.005em}
+.c-li.is-on h3{color:var(--accent)}
+.c-li p{margin:0;font-size:var(--fs-2xs);color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.c-li .track{margin-top:8px}
+.c-li .pct{float:right;font-variant-numeric:tabular-nums;font-size:var(--fs-2xs);color:var(--muted)}
+.c-gut{border-right:1px solid var(--line);background:var(--bg);display:flex;align-items:center;justify-content:center;overflow:hidden}
+.c-gut span{writing-mode:vertical-rl;font-family:var(--font-display);font-size:var(--fs-2xs);color:var(--muted);white-space:nowrap}
+.c-notes{overflow:hidden;padding:var(--sp-5) var(--sp-6);display:flex;flex-direction:column}
+.c-notes-head{display:flex;align-items:center;gap:var(--sp-3);margin-bottom:var(--sp-4)}
+.c-notes-head h2{font:600 var(--fs-m)/1 var(--font-display);margin:0}
+.c-filters{display:flex;gap:6px;margin-left:auto}
+.note-list{flex:1;overflow:hidden;display:flex;flex-direction:column;gap:var(--sp-3)}
+.nt{border:1px solid var(--line);border-radius:var(--radius-l);background:var(--surface);padding:var(--sp-4);max-width:62ch}
+.nt.is-focus{outline:2px solid var(--accent);outline-offset:2px;background:var(--raised)}
+.nt p{margin:0;font:400 var(--fs-s)/1.55 var(--font-display)}
+.nt .meta{display:flex;align-items:center;gap:10px;margin-top:12px;font-size:var(--fs-2xs);color:var(--muted)}
+.nt .meta .pg{font-variant-numeric:tabular-nums;border:1px solid var(--line);border-radius:var(--radius-pill);padding:2px 8px;color:var(--text)}
+.nt.is-hollow{background:transparent;border-style:dashed}
+.nt-quote{display:flex;gap:12px;align-items:flex-start}
+.nt-quote .qm{font:600 34px/0.8 var(--font-display);color:var(--accent)}
+.c-compose{margin-top:var(--sp-4);display:flex;gap:var(--sp-3);align-items:center;padding-top:var(--sp-4);border-top:1px solid var(--line)}
+.c-field{flex:1;height:44px;border:1px solid var(--line);border-radius:var(--radius-m);background:var(--raised);display:flex;align-items:center;padding:0 14px;color:var(--muted);font-size:var(--fs-s);font-family:var(--font-display)}
+.c-page{width:92px;height:44px;border:1px solid var(--line);border-radius:var(--radius-m);display:flex;align-items:center;justify-content:center;font-size:var(--fs-xs);color:var(--muted);font-variant-numeric:tabular-nums}
+.clamp2{display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+
+/* hata satırı (B) */
+.is-error{display:flex;align-items:center;gap:10px;padding:10px 12px;border:1px solid var(--line);border-radius:var(--radius-m);background:var(--surface);font-size:var(--fs-xs)}
+.err .ico{color:var(--danger)}
+.err .act{margin-left:auto;color:var(--accent);font-weight:500;text-decoration:underline;text-underline-offset:3px}
+.is-disabled{opacity:.45;pointer-events:none}
+</style>
+</head>
+<body>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <symbol id="i-book" viewBox="0 0 16 16"><path d="M2.5 3.2c1.6-.9 3.6-.9 5.5 0v9.6c-1.9-.9-3.9-.9-5.5 0z"/><path d="M13.5 3.2c-1.6-.9-3.6-.9-5.5 0v9.6c1.9-.9 3.9-.9 5.5 0z"/></symbol>
+  <symbol id="i-pen" viewBox="0 0 16 16"><path d="M11.2 2.6 13.4 4.8 5.6 12.6 2.6 13.4l.8-3z"/></symbol>
+  <symbol id="i-clock" viewBox="0 0 16 16"><circle cx="8" cy="8" r="6"/><path d="M8 4.6V8l2.4 1.6"/></symbol>
+  <symbol id="i-check" viewBox="0 0 16 16"><path d="M3 8.4 6.2 11.6 13 4.8"/></symbol>
+  <symbol id="i-plus" viewBox="0 0 16 16"><path d="M8 3.4v9.2M3.4 8h9.2"/></symbol>
+  <symbol id="i-search" viewBox="0 0 16 16"><circle cx="7" cy="7" r="4.4"/><path d="m10.4 10.4 3 3"/></symbol>
+  <symbol id="i-dots" viewBox="0 0 16 16"><circle cx="3.6" cy="8" r=".9"/><circle cx="8" cy="8" r=".9"/><circle cx="12.4" cy="8" r=".9"/></symbol>
+  <symbol id="i-left" viewBox="0 0 16 16"><path d="M9.8 3.8 5.6 8l4.2 4.2"/></symbol>
+  <symbol id="i-right" viewBox="0 0 16 16"><path d="M6.2 3.8 10.4 8l-4.2 4.2"/></symbol>
+  <symbol id="i-alert" viewBox="0 0 16 16"><path d="M8 2.6 14.2 13H1.8z"/><path d="M8 6.6v3M8 11.3v.1"/></symbol>
+  <symbol id="i-mark" viewBox="0 0 16 16"><path d="M4.4 2.4h7.2v11.2L8 10.9l-3.6 2.7z"/></symbol>
+  <symbol id="i-pause" viewBox="0 0 16 16"><path d="M6 3.4v9.2M10 3.4v9.2"/></symbol>
+  <symbol id="i-play" viewBox="0 0 16 16"><path d="M5.4 3.4 12.2 8l-6.8 4.6z"/></symbol>
+  <symbol id="i-stack" viewBox="0 0 16 16"><path d="M8 2.2 14.4 5.4 8 8.6 1.6 5.4z"/><path d="m1.6 8.4 6.4 3.2 6.4-3.2"/></symbol>
+  <symbol id="i-note" viewBox="0 0 16 16"><path d="M3.2 3.2h9.6v9.6H3.2z"/><path d="M5.6 6.4h4.8M5.6 9.6h3.2"/></symbol>
+  <symbol id="i-chart" viewBox="0 0 16 16"><path d="M2.6 13.4h10.8"/><path d="M5 10.6V7.2M8 10.6V4.4M11 10.6V6"/></symbol>
+</svg>
+
+<div class="shell">
+<h1>Kitap Defteri — ana ekran</h1>
+<p class="sub">Tuval · 15 pano · gerçek boyutta artboard · 3 yapısal olarak farklı seçenek · tokenlar <code>:root</code> içinde</p>
+<div class="themes" role="group" aria-label="Tema"><button data-theme="kagit" aria-pressed="true">Gündüz (kâğıt)</button><button data-theme="gece" aria-pressed="false">Gece (mürekkep)</button></div>
+<nav class="index">
+  <a href="#konsept">konsept</a>
+  <a href="#a-ana">A · defter — ana</a><a href="#a-hover">A · hover/focus</a><a href="#a-empty">A · boş durum</a><a href="#a-mobil">A · mobil</a>
+  <a href="#b-ana">B · oda — ana</a><a href="#b-oturum">B · oturum</a><a href="#b-loading">B · yükleniyor/hata</a>
+  <a href="#c-ana">C · notlar — ana</a><a href="#c-focus">C · odak</a><a href="#c-long">C · uzun metin</a>
+  <a href="#hareket">hareket</a><a href="#tema-gece">gece teması</a><a href="#token">tokenlar</a><a href="#tip">tip</a>
+</nav>
+<div class="grid">
+
+<!-- ============================ KONSEPT ============================ -->
+<section class="board" id="konsept" data-board="konsept" style="--w:1180px">
+  <header><b>Konsept ve seçenekler</b><code>1180×560</code></header>
+  <div class="artboard" style="width:1180px;height:560px">
+    <div style="padding:28px 32px;display:flex;flex-direction:column;gap:22px;height:100%">
+      <div>
+        <p style="margin:0 0 6px;font-size:var(--fs-2xs);color:var(--muted)">Konsept cümlesi</p>
+        <h2 style="font:600 26px/1.2 var(--font-display);letter-spacing:-.015em;margin:0;max-width:62ch">
+          Kâğıt üstünde bir mürekkep defteri: tek kiremit rengi mürekkep, Literata'nın kitap sesi + IBM Plex Sans'ın enstrüman tonu.
+          Cesur hamle — kitapların fotoğrafı yok: her kapak tipografik bir çip, veri bir kütüphane defteri gibi satır satır okunur.
+        </h2>
+      </div>
+      <div class="hr"></div>
+      <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:24px">
+        <div style="border-top:2px solid var(--accent);padding-top:12px">
+          <p style="margin:0 0 2px;font:600 var(--fs-m)/1.2 var(--font-display)">A · Kütüphane Defteri</p>
+          <p style="margin:0 0 10px;font-size:var(--fs-2xs);color:var(--muted)">Sol dizin + tek sütun satır listesi</p>
+          <p style="margin:0 0 8px;font-size:var(--fs-xs)"><b>İdea:</b> uygulama bir katalog defteri. Her kitap bir satır; ilerleme satırı geçen ince cetvel ve okunulan sayıdaki fişkide.</p>
+          <p style="margin:0 0 8px;font-size:var(--fs-xs)"><b>Optimize:</b> çok kitapla başa çıkma — 47 kitaplık arşivde bile tarama.</p>
+          <p style="margin:0;font-size:var(--fs-xs)"><b>Bedeli:</b> "şu an ne okuyorum" ancak bir tıklama sonra görünür.</p>
+        </div>
+        <div style="border-top:2px solid var(--accent);padding-top:12px">
+          <p style="margin:0 0 2px;font:600 var(--fs-m)/1.2 var(--font-display)">B · Okuma Odası</p>
+          <p style="margin:0 0 10px;font-size:var(--fs-2xs);color:var(--muted)">Sekmeli, tek ekran, saat ve halka</p>
+          <p style="margin:0 0 8px;font-size:var(--fs-xs)"><b>İdea:</b> ekran tek bir soruya cevap verir: "şu an ne okuyorum, ne kadar kaldı". Halka + bugünün süresi kahraman; raflar ikinci planda.</p>
+          <p style="margin:0 0 8px;font-size:var(--fs-xs)"><b>Optimize:</b> oturum başlatma ve günlük ritim; tek bakışta motivasyon.</p>
+          <p style="margin:0;font-size:var(--fs-xs)"><b>Bedeli:</b> notlar ikinci ekrana düşüyor, liste taraması zayıflıyor.</p>
+        </div>
+        <div style="border-top:2px solid var(--accent);padding-top:12px">
+          <p style="margin:0 0 2px;font:600 var(--fs-m)/1.2 var(--font-display)">C · Kenar Notları</p>
+          <p style="margin:0 0 10px;font-size:var(--fs-2xs);color:var(--muted)">İki sayfalık açık kitap, nota göre</p>
+          <p style="margin:0 0 8px;font-size:var(--fs-xs)"><b>İdea:</b> okuma listesi kenardaki içindekiler, sağda notların kendisi. Dikey ortadaki bağ sayfa kenarı gibi başlık taşır.</p>
+          <p style="margin:0 0 8px;font-size:var(--fs-xs)"><b>Optimize:</b> not yazma ve nota dönme; kelime ölçüsü 62 karakter.</p>
+          <p style="margin:0;font-size:var(--fs-xs)"><b>Bedeli:</b> 1280 px'te liste kolonu dardır, "tüm kitaplar" taraması ikinci tık.</p>
+        </div>
+      </div>
+      <div class="hr"></div>
+      <div style="display:grid;grid-template-columns:300px 1fr;gap:24px;font-size:var(--fs-xs)">
+        <div>
+          <p style="margin:0 0 4px;font-weight:600">Referans durumu</p>
+          <p style="margin:0;color:var(--muted)">Referans verilmedi. Ödünç alınan yapı: kütüphane kataloğu sütunu, yayın evi künyesi satırı (s. 148 / 245), Türkçe tarih (13 Eki 2026). Yeni olan: palet, tip, kapak çipi, ikon seti, düzen.</p>
+        </div>
+        <div>
+          <p style="margin:0 0 4px;font-weight:600">Öneri</p>
+          <p style="margin:0;color:var(--muted)">A ana ekran (tarama ve güvenilir veri), B'nin oturum şeridi alt satır olarak. C, not ekranı için ayrı yüzey olarak kalır. A güvenli okuma, B en cesur okuma, C en yazı odaklı okuma.</p>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="note">Referans verilmediği için palet ve tip planı burada açıkça yazılı; üç seçenek yapıda ayrışır, palette değil (tek ürün, tek görsel kimlik).</div>
+</section>
+
+<!-- ============================ A · ANA ============================ -->
+<section class="board" id="a-ana" data-board="a-ana" style="--w:1280px">
+  <header><b>A · Kütüphane Defteri — ana ekran (idle)</b><code>1280×860</code></header>
+  <div class="artboard" style="width:1280px;height:860px">
+    <div class="a">
+      <div class="a-top">
+        <span class="a-brand serif">Kitap Defteri</span>
+        <span class="chip">13 Eki 2026, Salı</span>
+        <div class="a-search"><svg class="ico"><use href="#i-search"/></svg>Kitap ya da not ara<kbd>⌘K</kbd></div>
+        <button class="btn btn-p"><svg class="ico"><use href="#i-plus"/></svg>Kitap ekle</button>
+      </div>
+      <div class="a-body">
+        <aside class="a-rail">
+          <div class="a-me">
+            <div class="a-av">DY</div>
+            <div>
+              <div style="font-size:var(--fs-xs);font-weight:600">Defne Yılmaz</div>
+              <div style="font-size:var(--fs-2xs);color:var(--muted)">2026 hedefi · 24 kitap</div>
+            </div>
+          </div>
+          <nav class="a-nav">
+            <div class="a-item on"><svg class="ico"><use href="#i-book"/></svg>Devam edenler<span class="n">3</span></div>
+            <div class="a-item"><svg class="ico"><use href="#i-stack"/></svg>Okuma listesi<span class="n">18</span></div>
+            <div class="a-item"><svg class="ico"><use href="#i-check"/></svg>Bitirdiklerim<span class="n">11</span></div>
+            <div class="a-item"><svg class="ico"><use href="#i-note"/></svg>Tüm notlar<span class="n">63</span></div>
+            <div class="a-item"><svg class="ico"><use href="#i-mark"/></svg>Raftan çıkanlar<span class="n">47</span></div>
+          </nav>
+          <div class="a-foot">
+            <div class="a-led"><span class="mut">Bu yıl okunan</span><b class="num">1.284 sayfa</b></div>
+            <div class="a-led" style="margin-top:6px"><span class="mut">Son 12 hafta</span><b class="num">312 s.</b></div>
+            <div class="a-spark" aria-label="son 12 hafta">
+              <i style="height:7px"></i><i style="height:11px"></i><i style="height:4px"></i><i style="height:16px"></i>
+              <i style="height:9px"></i><i style="height:13px"></i><i style="height:6px"></i><i style="height:19px"></i>
+              <i style="height:14px"></i><i style="height:8px"></i><i class="on" style="height:22px"></i><i class="on" style="height:17px"></i>
+            </div>
+          </div>
+        </aside>
+        <main class="a-main">
+          <div class="a-head">
+            <h2 class="sec-title">Devam edenler</h2>
+            <p class="a-sum">3 kitap · toplam 1.165 sayfa okundu · kalan 686 sayfa</p>
+            <button class="btn" style="height:32px">Son okumaya göre <svg class="ico" style="width:14px;height:14px"><use href="#i-dots"/></svg></button>
+          </div>
+          <div class="a-list">
+            <article class="row">
+              <div class="cover">İ</div>
+              <div>
+                <div style="display:flex;align-items:baseline;gap:10px"><h3 class="row-title">İnce Memed</h3></div>
+                <p class="row-meta">Yaşar Kemal · YKY · 245 sayfa · 1968</p>
+                <div class="track"><i style="width:63%"></i><b class="notch" style="left:63%"></b></div>
+                <p class="row-sub"><span class="pg">s. 148 / 245</span><span>2 gün önce</span><span>4 not</span><span>18 dk oturum</span></p>
+              </div>
+              <div class="row-end"><span class="row-pct">%63</span><svg class="ico mut"><use href="#i-dots"/></svg></div>
+            </article>
+            <article class="row">
+              <div class="cover">B</div>
+              <div>
+                <div style="display:flex;align-items:baseline;gap:10px"><h3 class="row-title">Benim Adım Kırmızı</h3></div>
+                <p class="row-meta">Hasan Ali Toptaş · Doğan Kitap · 208 sayfa · 1998</p>
+                <div class="track"><i style="width:12%"></i><b class="notch" style="left:12%"></b></div>
+                <p class="row-sub"><span class="pg">s. 25 / 208</span><span>dün</span><span>1 not</span><span>41 dk oturum</span></p>
+              </div>
+              <div class="row-end"><span class="row-pct">%12</span><svg class="ico mut"><use href="#i-dots"/></svg></div>
+            </article>
+            <article class="row">
+              <div class="cover">T</div>
+              <div>
+                <div style="display:flex;align-items:baseline;gap:10px"><h3 class="row-title">Tutunamayanlar</h3></div>
+                <p class="row-meta">Haluk Piyes · Doğan Kitap · 432 sayfa · 1972</p>
+                <div class="track"><i style="width:87%"></i><b class="notch" style="left:87%"></b></div>
+                <p class="row-sub"><span class="pg">s. 376 / 432</span><span>6 Eki</span><span>9 not</span><span>1 sa 12 dk oturum</span></p>
+              </div>
+              <div class="row-end"><span class="row-pct">%87</span><svg class="ico mut"><use href="#i-dots"/></svg></div>
+            </article>
+            <article class="row">
+              <div class="cover">K</div>
+              <div>
+                <div style="display:flex;align-items:baseline;gap:10px"><h3 class="row-title">Kafatası</h3></div>
+                <p class="row-meta">Franz Kafka · Çev. Ahmet Cemal · 190 sayfa · 2015</p>
+                <div class="track"><i style="width:41%"></i><b class="notch" style="left:41%"></b></div>
+                <p class="row-sub"><span class="pg">s. 78 / 190</span><span>4 Eki</span><span>2 not</span><span>27 dk oturum</span></p>
+              </div>
+              <div class="row-end"><span class="row-pct">%41</span><svg class="ico mut"><use href="#i-dots"/></svg></div>
+            </article>
+            <article class="row">
+              <div class="cover">Ş</div>
+              <div>
+                <div style="display:flex;align-items:baseline;gap:10px"><h3 class="row-title">Şah Mat</h3></div>
+                <p class="row-meta">Philip K. Dick · İthaki · 264 sayfa · 2019</p>
+                <div class="track"><i style="width:28%"></i><b class="notch" style="left:28%"></b></div>
+                <p class="row-sub"><span class="pg">s. 74 / 264</span><span>1 Eki</span><span>not yok</span><span>22 dk oturum</span></p>
+              </div>
+              <div class="row-end"><span class="row-pct">%28</span><svg class="ico mut"><use href="#i-dots"/></svg></div>
+            </article>
+            <article class="row">
+              <div class="cover">K</div>
+              <div>
+                <div style="display:flex;align-items:baseline;gap:10px"><h3 class="row-title">Kürk Mantolu Madonna</h3></div>
+                <p class="row-meta">Sabahattin Ali · Yapı Kredi · 176 sayfa · 1996</p>
+                <div class="track"><i style="width:12%"></i><b class="notch" style="left:12%"></b></div>
+                <p class="row-sub"><span class="pg">s. 21 / 176</span><span>28 Eyl</span><span>3 not</span><span>9 dk oturum</span></p>
+              </div>
+              <div class="row-end"><span class="row-pct">%12</span><svg class="ico mut"><use href="#i-dots"/></svg></div>
+            </article>
+          </div>
+          <div class="a-bar">
+            <svg class="ico"><use href="#i-chart"/></svg>
+            <span>Bu ay <b>312 sayfa</b> · geçen aya göre <b>+%18</b></span>
+            <span style="margin-left:auto">Aylık hedefin <b>%64</b>'ündesin · 3 gün üst üste okudun</span>
+          </div>
+        </main>
+      </div>
+    </div>
+  </div>
+  <div class="note">Tek sütun, satır başına 76 px. İlerleme yatay cetvel + okunan sayıda fişki; durum yalnız renkle değil sayı ve metinle taşınır.</div>
+</section>
+
+<!-- ============================ A · HOVER/FOCUS ============================ -->
+<section class="board" id="a-hover" data-board="a-hover" style="--w:1280px">
+  <header><b>A · satır hover + klavye focus</b><code>1280×860</code></header>
+  <div class="artboard" style="width:1280px;height:860px">
+    <div class="a">
+      <div class="a-top">
+        <span class="a-brand serif">Kitap Defteri</span>
+        <span class="chip">13 Eki 2026, Salı</span>
+        <div class="a-search"><svg class="ico"><use href="#i-search"/></svg>Kitap ya da not ara<kbd>⌘K</kbd></div>
+        <button class="btn btn-p" style="outline:2px solid var(--accent);outline-offset:2px"><svg class="ico"><use href="#i-plus"/></svg>Kitap ekle</button>
+      </div>
+      <div class="a-body">
+        <aside class="a-rail">
+          <div class="a-me">
+            <div class="a-av">DY</div>
+            <div>
+              <div style="font-size:var(--fs-xs);font-weight:600">Defne Yılmaz</div>
+              <div style="font-size:var(--fs-2xs);color:var(--muted)">2026 hedefi · 24 kitap</div>
+            </div>
+          </div>
+          <nav class="a-nav">
+            <div class="a-item on"><svg class="ico"><use href="#i-book"/></svg>Devam edenler<span class="n">3</span></div>
+            <div class="a-item"><svg class="ico"><use href="#i-stack"/></svg>Okuma listesi<span class="n">18</span></div>
+            <div class="a-item"><svg class="ico"><use href="#i-check"/></svg>Bitirdiklerim<span class="n">11</span></div>
+            <div class="a-item"><svg class="ico"><use href="#i-note"/></svg>Tüm notlar<span class="n">63</span></div>
+            <div class="a-item"><svg class="ico"><use href="#i-mark"/></svg>Raftan çıkanlar<span class="n">47</span></div>
+          </nav>
+          <div class="a-foot">
+            <div class="a-led"><span class="mut">Bu yıl okunan</span><b class="num">1.284 sayfa</b></div>
+            <div class="a-led" style="margin-top:6px"><span class="mut">Son 12 hafta</span><b class="num">312 s.</b></div>
+            <div class="a-spark">
+              <i style="height:7px"></i><i style="height:11px"></i><i style="height:4px"></i><i style="height:16px"></i>
+              <i style="height:9px"></i><i style="height:13px"></i><i style="height:6px"></i><i style="height:19px"></i>
+              <i style="height:14px"></i><i style="height:8px"></i><i class="on" style="height:22px"></i><i class="on" style="height:17px"></i>
+            </div>
+          </div>
+        </aside>
+        <main class="a-main">
+          <div class="a-head">
+            <h2 class="sec-title">Devam edenler</h2>
+            <p class="a-sum">3 kitap · toplam 1.165 sayfa okundu · kalan 686 sayfa</p>
+            <button class="btn" style="height:32px">Son okumaya göre <svg class="ico" style="width:14px;height:14px"><use href="#i-dots"/></svg></button>
+          </div>
+          <div class="a-list">
+            <article class="row is-hover">
+              <div class="cover">İ</div>
+              <div>
+                <h3 class="row-title">İnce Memed</h3>
+                <p class="row-meta">Yaşar Kemal · YKY · 245 sayfa · 1968</p>
+                <div class="track"><i style="width:63%"></i><b class="notch" style="left:63%"></b></div>
+                <p class="row-sub"><span class="pg">s. 148 / 245</span><span>2 gün önce</span><span>4 not</span></p>
+              </div>
+              <div class="row-acts">
+                <button class="ghost"><svg class="ico"><use href="#i-pen"/></svg>Not ekle</button>
+                <button class="ghost"><svg class="ico"><use href="#i-pause"/></svg>Duraklat</button>
+                <button class="ghost icon-only"><svg class="ico"><use href="#i-dots"/></svg></button>
+              </div>
+            </article>
+            <article class="row" tabindex="0" style="outline:2px solid var(--accent);outline-offset:-2px">
+              <div class="cover">B</div>
+              <div>
+                <h3 class="row-title">Benim Adım Kırmızı</h3>
+                <p class="row-meta">Hasan Ali Toptaş · Doğan Kitap · 208 sayfa · 1998</p>
+                <div class="track"><i style="width:12%"></i><b class="notch" style="left:12%"></b></div>
+                <p class="row-sub"><span class="pg">s. 25 / 208</span><span>dün</span><span>1 not</span><span>41 dk oturum</span></p>
+              </div>
+              <div class="row-end"><span class="row-pct">%12</span><svg class="ico mut"><use href="#i-dots"/></svg></div>
+            </article>
+            <article class="row">
+              <div class="cover">T</div>
+              <div>
+                <h3 class="row-title">Tutunamayanlar</h3>
+                <p class="row-meta">Haluk Piyes · Doğan Kitap · 432 sayfa · 1972</p>
+                <div class="track"><i style="width:87%"></i><b class="notch" style="left:87%"></b></div>
+                <p class="row-sub"><span class="pg">s. 376 / 432</span><span>6 Eki</span><span>9 not</span><span>1 sa 12 dk oturum</span></p>
+              </div>
+              <div class="row-end"><span class="row-pct">%87</span><svg class="ico mut"><use href="#i-dots"/></svg></div>
+            </article>
+            <article class="row">
+              <div class="cover">K</div>
+              <div>
+                <h3 class="row-title">Kafatası</h3>
+                <p class="row-meta">Franz Kafka · Çev. Ahmet Cemal · 190 sayfa · 2015</p>
+                <div class="track"><i style="width:41%"></i><b class="notch" style="left:41%"></b></div>
+                <p class="row-sub"><span class="pg">s. 78 / 190</span><span>4 Eki</span><span>2 not</span><span>27 dk oturum</span></p>
+              </div>
+              <div class="row-end"><span class="row-pct">%41</span><svg class="ico mut"><use href="#i-dots"/></svg></div>
+            </article>
+            <article class="row">
+              <div class="cover">Ş</div>
+              <div>
+                <h3 class="row-title">Şah Mat</h3>
+                <p class="row-meta">Philip K. Dick · İthaki · 264 sayfa · 2019</p>
+                <div class="track"><i style="width:28%"></i><b class="notch" style="left:28%"></b></div>
+                <p class="row-sub"><span class="pg">s. 74 / 264</span><span>1 Eki</span><span>not yok</span><span>22 dk oturum</span></p>
+              </div>
+              <div class="row-end"><span class="row-pct">%28</span><svg class="ico mut"><use href="#i-dots"/></svg></div>
+            </article>
+            <article class="row">
+              <div class="cover">K</div>
+              <div>
+                <h3 class="row-title">Kürk Mantolu Madonna</h3>
+                <p class="row-meta">Sabahattin Ali · Yapı Kredi · 176 sayfa · 1996</p>
+                <div class="track"><i style="width:12%"></i><b class="notch" style="left:12%"></b></div>
+                <p class="row-sub"><span class="pg">s. 21 / 176</span><span>28 Eyl</span><span>3 not</span><span>9 dk oturum</span></p>
+              </div>
+              <div class="row-end"><span class="row-pct">%12</span><svg class="ico mut"><use href="#i-dots"/></svg></div>
+            </article>
+          </div>
+          <div class="a-bar">
+            <svg class="ico"><use href="#i-chart"/></svg>
+            <span>Bu ay <b>312 sayfa</b> · geçen aya göre <b>+%18</b></span>
+            <span style="margin-left:auto">Aylık hedefin <b>%64</b>'ündesin · 3 gün üst üste okudun</span>
+          </div>
+        </main>
+      </div>
+    </div>
+  </div>
+  <div class="note">Hover satırda yüzde + kebab satır aksiyonlarına (Not ekle / Duraklat) dönüşür, 120 ms. Klavyede aynı satır 2 px vurgu halkası alır — durum rengin değil, halka ve eylem listesiyle anlaşılır.</div>
+</section>
+
+<!-- ============================ A · BOŞ ============================ -->
+<section class="board" id="a-empty" data-board="a-empty" style="--w:1280px">
+  <header><b>A · ilk çalıştırma, kütüphane boş</b><code>1280×860</code></header>
+  <div class="artboard" style="width:1280px;height:860px">
+    <div class="a">
+      <div class="a-top">
+        <span class="a-brand serif">Kitap Defteri</span>
+        <span class="chip">13 Eki 2026, Salı</span>
+        <div class="a-search is-disabled"><svg class="ico"><use href="#i-search"/></svg>Kitap ya da not ara<kbd>⌘K</kbd></div>
+        <button class="btn btn-p"><svg class="ico"><use href="#i-plus"/></svg>Kitap ekle</button>
+      </div>
+      <div class="a-body">
+        <aside class="a-rail">
+          <div class="a-me">
+            <div class="a-av">DY</div>
+            <div>
+              <div style="font-size:var(--fs-xs);font-weight:600">Defne Yılmaz</div>
+              <div style="font-size:var(--fs-2xs);color:var(--muted)">2026 hedefi · 24 kitap</div>
+            </div>
+          </div>
+          <nav class="a-nav">
+            <div class="a-item on"><svg class="ico"><use href="#i-book"/></svg>Devam edenler<span class="n">0</span></div>
+            <div class="a-item is-disabled"><svg class="ico"><use href="#i-stack"/></svg>Okuma listesi<span class="n">0</span></div>
+            <div class="a-item is-disabled"><svg class="ico"><use href="#i-check"/></svg>Bitirdiklerim<span class="n">0</span></div>
+            <div class="a-item is-disabled"><svg class="ico"><use href="#i-note"/></svg>Tüm notlar<span class="n">0</span></div>
+          </nav>
+          <div class="a-foot">
+            <div class="a-led"><span class="mut">Bu yıl okunan</span><b class="num">0 sayfa</b></div>
+            <div class="a-spark">
+              <i style="height:2px"></i><i style="height:2px"></i><i style="height:2px"></i><i style="height:2px"></i>
+              <i style="height:2px"></i><i style="height:2px"></i><i style="height:2px"></i><i style="height:2px"></i>
+              <i style="height:2px"></i><i style="height:2px"></i><i style="height:2px"></i><i style="height:2px"></i>
+            </div>
+          </div>
+        </aside>
+        <main class="a-main">
+          <div class="a-head"><h2 class="sec-title">Devam edenler</h2><p class="a-sum">0 kitap</p></div>
+          <div class="a-list" style="flex:1">
+            <div class="a-empty">
+              <svg class="ico ico-l" style="color:var(--muted)"><use href="#i-book"/></svg>
+              <h2>Kitaplığın henüz boş</h2>
+              <p>Okuma listesine ilk kitabı elle ekle ya da Open Library'deki listeni içe aktar. Başladığında ilerleme ve notlar burada birikir.</p>
+              <div class="irow" style="margin-top:8px">
+                <button class="btn btn-p"><svg class="ico"><use href="#i-plus"/></svg>İlk kitabı ekle</button>
+                <button class="btn">Open Library listesini içe aktar</button>
+              </div>
+              <p style="font-size:var(--fs-2xs);color:var(--muted);margin-top:4px">Sonraki adımda hedef kitap sayısını sorarız — 24 kitap/2026 önerilir.</p>
+            </div>
+          </div>
+          <div class="a-bar">
+            <svg class="ico"><use href="#i-chart"/></svg>
+            <span>Bu ay <b>0 sayfa</b></span>
+            <span style="margin-left:auto">Grafik ilk oturumdan sonra dolar</span>
+          </div>
+        </main>
+      </div>
+    </div>
+  </div>
+  <div class="note">Boş durum bir süs değil: navigasyon 0 sayıyla durur, arama ve grafik pasifleşir, tek gerçek eylem öne çıkar. Uydurma veri yok.</div>
+</section>
+
+<!-- ============================ A · MOBİL ============================ -->
+<section class="board" id="a-mobil" data-board="a-mobil" style="--w:390px">
+  <header><b>A · mobil 390 px</b><code>390×844</code></header>
+  <div class="artboard" style="width:390px;height:844px">
+    <div class="a-m">
+      <div class="a-m-top">
+        <span class="a-brand serif" style="font-size:var(--fs-s)">Kitap Defteri</span>
+        <button class="btn icon-only" style="margin-left:auto;width:40px;padding:0;justify-content:center"><svg class="ico"><use href="#i-search"/></svg></button>
+        <button class="btn btn-p" style="width:40px;padding:0;justify-content:center"><svg class="ico"><use href="#i-plus"/></svg></button>
+      </div>
+      <div class="a-m-list">
+        <div style="display:flex;align-items:baseline;gap:8px;padding:var(--sp-4) var(--sp-4) var(--sp-2)">
+          <h2 style="font:600 var(--fs-m)/1.2 var(--font-display);margin:0">Devam edenler</h2>
+          <span style="margin-left:auto;font-size:var(--fs-2xs);color:var(--muted)">3 kitap</span>
+        </div>
+        <div class="a-m-row">
+          <div><h3>İnce Memed</h3><p>Yaşar Kemal · 2 gün önce</p></div>
+          <div style="text-align:right"><div class="num" style="font:500 var(--fs-m)/1 var(--font-display)">%63</div><div style="font-size:var(--fs-2xs);color:var(--muted)" class="num">s. 148/245</div></div>
+        </div>
+        <div style="padding:0 var(--sp-4) var(--sp-3)"><div class="track"><i style="width:63%"></i><b class="notch" style="left:63%"></b></div></div>
+        <div class="a-m-row">
+          <div><h3>Benim Adım Kırmızı</h3><p>Hasan Ali Toptaş · dün</p></div>
+          <div style="text-align:right"><div class="num" style="font:500 var(--fs-m)/1 var(--font-display)">%12</div><div style="font-size:var(--fs-2xs);color:var(--muted)" class="num">s. 25/208</div></div>
+        </div>
+        <div style="padding:0 var(--sp-4) var(--sp-3)"><div class="track"><i style="width:12%"></i><b class="notch" style="left:12%"></b></div></div>
+        <div class="a-m-row">
+          <div><h3>Tutunamayanlar</h3><p>Haluk Piyes · 6 Eki</p></div>
+          <div style="text-align:right"><div class="num" style="font:500 var(--fs-m)/1 var(--font-display)">%87</div><div style="font-size:var(--fs-2xs);color:var(--muted)" class="num">s. 376/432</div></div>
+        </div>
+        <div style="padding:0 var(--sp-4) var(--sp-3)"><div class="track"><i style="width:87%"></i><b class="notch" style="left:87%"></b></div></div>
+        <div class="a-m-row">
+          <div><h3>Kafatası</h3><p>Franz Kafka · 4 Eki</p></div>
+          <div style="text-align:right"><div class="num" style="font:500 var(--fs-m)/1 var(--font-display)">%41</div><div style="font-size:var(--fs-2xs);color:var(--muted)" class="num">s. 78/190</div></div>
+        </div>
+        <div style="padding:0 var(--sp-4) var(--sp-3)"><div class="track"><i style="width:41%"></i><b class="notch" style="left:41%"></b></div></div>
+        <div class="a-m-row">
+          <div><h3>Şah Mat</h3><p>Philip K. Dick · 1 Eki</p></div>
+          <div style="text-align:right"><div class="num" style="font:500 var(--fs-m)/1 var(--font-display)">%28</div><div style="font-size:var(--fs-2xs);color:var(--muted)" class="num">s. 74/264</div></div>
+        </div>
+        <div style="padding:0 var(--sp-4) var(--sp-3)"><div class="track"><i style="width:28%"></i><b class="notch" style="left:28%"></b></div></div>
+        <div style="display:flex;align-items:center;gap:8px;padding:var(--sp-4) var(--sp-4) var(--sp-2)">
+          <h2 style="font:600 var(--fs-s)/1.2 var(--font-ui);margin:0">Bu ay</h2>
+          <span style="margin-left:auto;font-size:var(--fs-2xs);color:var(--muted)" class="num">geçen aya göre +%18</span>
+        </div>
+        <div style="margin:0 var(--sp-4);padding:var(--sp-4);border:1px solid var(--line);border-radius:var(--radius-l);background:var(--surface)">
+          <div style="display:flex;align-items:baseline;gap:8px">
+            <span class="num" style="font:600 var(--fs-xl)/1 var(--font-display)">312</span>
+            <span style="font-size:var(--fs-2xs);color:var(--muted)">sayfa · hedefin %64'ü</span>
+          </div>
+          <div class="track" style="height:6px;margin-top:12px"><i style="width:64%"></i></div>
+          <div style="display:flex;justify-content:space-between;margin-top:10px;font-size:var(--fs-2xs);color:var(--muted)"><span>3 gün üst üste okudun</span><span class="num">hedef 480 s.</span></div>
+        </div>
+      </div>
+      <div class="a-m-tab">
+        <div class="on"><svg class="ico"><use href="#i-book"/></svg>Kitaplar</div>
+        <div><svg class="ico"><use href="#i-clock"/></svg>Süre</div>
+        <div><svg class="ico"><use href="#i-note"/></svg>Notlar</div>
+        <div><svg class="ico"><use href="#i-chart"/></svg>Özet</div>
+      </div>
+    </div>
+  </div>
+  <div class="note">Daraltmada defter satırı iki sütuna düşer, cetvel tam genişliğe iner, alt tab bar 68 px ve 44 px dokunma hedefi. Aynı veri, aynı hiyerarşi.</div>
+</section>
+
+<!-- ============================ B · ANA ============================ -->
+<section class="board" id="b-ana" data-board="b-ana" style="--w:1280px">
+  <header><b>B · Okuma Odası — ana ekran (idle)</b><code>1280×860</code></header>
+  <div class="artboard" style="width:1280px;height:860px">
+    <div class="b">
+      <div class="b-top">
+        <span class="a-brand serif">Kitap Defteri</span>
+        <span class="chip">13 Eki 2026, Salı</span>
+        <button class="btn" style="margin-left:auto;height:32px"><svg class="ico"><use href="#i-note"/></svg>Son notlar</button>
+      </div>
+      <div class="b-tabs">
+        <span class="tab on">Şimdi</span><span class="tab">Raflar</span><span class="tab">Notlar</span><span class="tab">Yıl özeti</span>
+      </div>
+      <div class="b-scroll">
+        <div class="b-hero">
+          <div>
+            <p class="b-eyebrow"><svg class="ico"><use href="#i-book"/></svg>Şu an okunan · 3. gün</p>
+            <h1>İnce Memed</h1>
+            <p class="byline">Yaşar Kemal · YKY · 245 sayfa · 1968</p>
+            <div class="b-meta">
+              <span class="chip on"><svg class="ico"><use href="#i-pen"/></svg>s. 148</span>
+              <span class="chip"><svg class="ico"><use href="#i-note"/></svg>4 not</span>
+              <span class="chip"><svg class="ico"><use href="#i-clock"/></svg>Bugün 45 dk</span>
+              <span class="chip"><svg class="ico"><use href="#i-clock"/></svg>1 Eki'de başladın</span>
+            </div>
+          </div>
+          <div class="b-ring">
+            <div class="ring-wrap">
+              <svg viewBox="0 0 120 120" width="196" height="196" aria-label="Yüzde 63 okundu">
+                <circle cx="60" cy="60" r="52" fill="none" stroke="var(--line)" stroke-width="11"/>
+                <circle cx="60" cy="60" r="52" fill="none" stroke="var(--accent)" stroke-width="11" stroke-linecap="round"
+                        stroke-dasharray="205.9 326.7" transform="rotate(-90 60 60)"/>
+              </svg>
+              <div class="ring-mid"><b>%63</b><span>148 / 245 s.</span></div>
+            </div>
+            <p style="margin:0;font-size:var(--fs-2xs);color:var(--muted)">97 sayfa kaldı · 1 sa 12 dk</p>
+          </div>
+          <div class="b-today">
+            <div style="display:flex;align-items:baseline;gap:8px">
+              <span class="big num">45 dk</span><span style="font-size:var(--fs-2xs);color:var(--muted)">bugün</span>
+              <span style="margin-left:auto;font-size:var(--fs-2xs);color:var(--muted)" class="num">haftalık ort. 38 dk</span>
+            </div>
+            <button class="btn btn-p" style="width:100%;justify-content:center"><svg class="ico"><use href="#i-play"/></svg>Okumayı başlat</button>
+            <div>
+              <p style="margin:0 0 6px;font-size:var(--fs-2xs);color:var(--muted)">Son 14 gün · dakika</p>
+              <div class="b-bars" aria-label="son 14 gün">
+                <i style="height:22px"></i><i style="height:8px"></i><i style="height:34px"></i><i style="height:14px"></i>
+                <i style="height:41px"></i><i style="height:26px"></i><i style="height:9px"></i><i style="height:33px"></i>
+                <i style="height:47px"></i><i style="height:18px"></i><i style="height:29px"></i><i style="height:38px"></i>
+                <i style="height:24px"></i><i class="on" style="height:45px"></i>
+              </div>
+              <div class="b-axis"><span>30 Eyl</span><span>13 Eki</span></div>
+            </div>
+          </div>
+        </div>
+
+        <div class="shelf">
+          <div class="shelf-head"><h2>Devam edenler</h2><span class="n">3 kitap</span><span class="more">Tümü</span></div>
+          <div class="b-row">
+            <div><h3>Benim Adım Kırmızı</h3><p class="who">Hasan Ali Toptaş · 208 s. · dün</p></div>
+            <div><div class="track"><i style="width:12%"></i></div><p class="who" style="margin-top:6px">s. 25 / 208</p></div>
+            <div class="pct">%12</div>
+          </div>
+          <div class="b-row">
+            <div><h3>Tutunamayanlar</h3><p class="who">Haluk Piyes · 432 s. · 6 Eki</p></div>
+            <div><div class="track"><i style="width:87%"></i></div><p class="who" style="margin-top:6px">s. 376 / 432</p></div>
+            <div class="pct">%87</div>
+          </div>
+          <div class="b-row">
+            <div><h3>Kafatası</h3><p class="who">Franz Kafka · 190 s. · 4 Eki</p></div>
+            <div><div class="track"><i style="width:41%"></i></div><p class="who" style="margin-top:6px">s. 78 / 190</p></div>
+            <div class="pct">%41</div>
+          </div>
+        </div>
+
+        <div class="shelf">
+          <div class="shelf-head"><h2>Okuma listesi</h2><span class="n">18 kitap</span><span class="more">Listeyi düzenle</span></div>
+          <div class="b-row">
+            <div><h3>Şah Mat</h3><p class="who">Philip K. Dick · 264 s. · 1 Eki</p></div>
+            <div><div class="track"><i style="width:28%"></i></div><p class="who" style="margin-top:6px">s. 74 / 264</p></div>
+            <div class="pct">%28</div>
+          </div>
+          <div class="b-row" style="background:var(--raised);border-radius:var(--radius-m);padding:11px 12px;border-top-color:transparent">
+            <div><h3>Kürk Mantolu Madonna</h3><p class="who">Sabahattin Ali · 176 s. · 28 Eyl</p></div>
+            <div><div class="track"><i style="width:12%"></i></div><p class="who" style="margin-top:6px">s. 21 / 176</p></div>
+            <div class="irow" style="justify-content:flex-end"><button class="ghost">Okumaya başla</button></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="note">Kahraman bölge tek kitap: %63 halkası 196 px, yanında bugünün süresi ve 14 günlük çubuk. Raflar ikinci planda, satır 44 px — gözden geçirme için.</div>
+</section>
+
+<!-- ============================ B · OTURUM ============================ -->
+<section class="board" id="b-oturum" data-board="b-oturum" style="--w:1280px">
+  <header><b>B · okuma oturumu çalışıyor (aktif durum)</b><code>1280×860</code></header>
+  <div class="artboard" style="width:1280px;height:860px">
+    <div class="b" style="grid-template-rows:56px 48px 1fr 64px">
+      <div class="b-top">
+        <span class="a-brand serif">Kitap Defteri</span>
+        <span class="chip">13 Eki 2026, Salı</span>
+        <button class="btn" style="margin-left:auto;height:32px"><svg class="ico"><use href="#i-note"/></svg>Son notlar</button>
+      </div>
+      <div class="b-tabs">
+        <span class="tab on">Şimdi</span><span class="tab">Raflar</span><span class="tab">Notlar</span><span class="tab">Yıl özeti</span>
+      </div>
+      <div class="b-scroll">
+        <div class="b-hero">
+          <div>
+            <p class="b-eyebrow"><span style="width:7px;height:7px;border-radius:50%;background:var(--accent);display:inline-block"></span>Okuma oturumu sürüyor</p>
+            <h1>İnce Memed</h1>
+            <p class="byline">Yaşar Kemal · YKY · 245 sayfa · 1968</p>
+            <div class="b-live">
+              <svg class="ico" style="color:var(--accent)"><use href="#i-clock"/></svg>
+              <span class="num"><b>00:12:47</b> geçti</span>
+              <span style="color:var(--muted)">·</span>
+              <span class="num"><b>27 sayfa</b> bu oturumda</span>
+              <span style="color:var(--muted)">·</span>
+              <span>s. 148 → 175 arasındasın</span>
+            </div>
+            <div class="b-meta" style="margin-top:var(--sp-4)">
+              <span class="chip on"><svg class="ico"><use href="#i-pen"/></svg>s. 148</span>
+              <span class="chip"><svg class="ico"><use href="#i-note"/></svg>4 not</span>
+              <span class="chip">1 Eki'de başladın</span>
+            </div>
+          </div>
+          <div class="b-ring">
+            <div class="ring-wrap">
+              <svg viewBox="0 0 120 120" width="196" height="196" aria-label="Yüzde 63 okundu">
+                <circle cx="60" cy="60" r="52" fill="none" stroke="var(--line)" stroke-width="11"/>
+                <circle cx="60" cy="60" r="52" fill="none" stroke="var(--accent)" stroke-width="11" stroke-linecap="round"
+                        stroke-dasharray="205.9 326.7" transform="rotate(-90 60 60)"/>
+              </svg>
+              <div class="ring-mid"><b>%63</b><span>148 / 245 s.</span></div>
+            </div>
+            <p style="margin:0;font-size:var(--fs-2xs);color:var(--muted)">97 sayfa kaldı · 1 sa 12 dk</p>
+          </div>
+          <div class="b-today">
+            <div style="display:flex;align-items:baseline;gap:8px">
+              <span class="big num">58 dk</span><span style="font-size:var(--fs-2xs);color:var(--muted)">bugün</span>
+              <span style="margin-left:auto;font-size:var(--fs-2xs);color:var(--muted)" class="num">haftalık ort. 38 dk</span>
+            </div>
+            <button class="btn btn-p" style="width:100%;justify-content:center;outline:2px solid var(--accent);outline-offset:2px"><svg class="ico"><use href="#i-pause"/></svg>Duraklat</button>
+            <p style="margin:0;font-size:var(--fs-2xs);color:var(--muted)">Sayfayı ilerlet → ilerleme oturum kapanınca yazılır.</p>
+          </div>
+        </div>
+        <div class="shelf">
+          <div class="shelf-head"><h2>Devam edenler</h2><span class="n">3 kitap</span><span class="more">Tümü</span></div>
+          <div class="b-row">
+            <div><h3>Benim Adım Kırmızı</h3><p class="who">Hasan Ali Toptaş · 208 s. · dün</p></div>
+            <div><div class="track"><i style="width:12%"></i></div><p class="who" style="margin-top:6px">s. 25 / 208</p></div>
+            <div class="pct">%12</div>
+          </div>
+          <div class="b-row">
+            <div><h3>Tutunamayanlar</h3><p class="who">Haluk Piyes · 432 s. · 6 Eki</p></div>
+            <div><div class="track"><i style="width:87%"></i></div><p class="who" style="margin-top:6px">s. 376 / 432</p></div>
+            <div class="pct">%87</div>
+          </div>
+          <div class="b-row">
+            <div><h3>Kafatası</h3><p class="who">Franz Kafka · 190 s. · 4 Eki</p></div>
+            <div><div class="track"><i style="width:41%"></i></div><p class="who" style="margin-top:6px">s. 78 / 190</p></div>
+            <div class="pct">%41</div>
+          </div>
+          <div class="b-row">
+            <div><h3>Şah Mat</h3><p class="who">Philip K. Dick · 264 s. · 1 Eki</p></div>
+            <div><div class="track"><i style="width:28%"></i></div><p class="who" style="margin-top:6px">s. 74 / 264</p></div>
+            <div class="pct">%28</div>
+          </div>
+        </div>
+      </div>
+      <div class="b-session">
+        <span style="font-size:var(--fs-xs);color:var(--muted)">Bu oturumdan not:</span>
+        <div class="b-input"><svg class="ico"><use href="#i-pen"/></svg>Okurken aklına geleni buraya yaz…</div>
+        <span style="font-size:var(--fs-xs);color:var(--muted)">s. <b class="num" style="color:var(--text)">175</b></span>
+        <button class="btn btn-p">Kaydet</button>
+      </div>
+    </div>
+  </div>
+  <div class="note">Oturum kalıcı bir çubuk olarak altta belirir (64 px): not yazma alanı burada, yeni pencere yok. Süre tabular rakamle akıyor, sayfa ilerlemesi oturum kapanınca yazılıyor (bunu söyleyen metin çubuğun yanında).</div>
+</section>
+
+<!-- ============================ B · YÜKLENİYOR + HATA ============================ -->
+<section class="board" id="b-loading" data-board="b-loading" style="--w:1280px">
+  <header><b>B · yükleniyor + kısmi hata</b><code>1280×860</code></header>
+  <div class="artboard" style="width:1280px;height:860px">
+    <div class="b">
+      <div class="b-top">
+        <span class="a-brand serif">Kitap Defteri</span>
+        <span class="chip">13 Eki 2026, Salı</span>
+        <button class="btn" style="margin-left:auto;height:32px"><svg class="ico"><use href="#i-note"/></svg>Son notlar</button>
+      </div>
+      <div class="b-tabs">
+        <span class="tab on">Şimdi</span><span class="tab">Raflar</span><span class="tab">Notlar</span><span class="tab">Yıl özeti</span>
+      </div>
+      <div class="b-scroll">
+        <div class="b-skel">
+          <div>
+            <div class="sk" style="width:120px;height:12px;margin-bottom:14px"></div>
+            <div class="sk" style="width:320px;height:30px;margin-bottom:12px"></div>
+            <div class="sk" style="width:210px;height:15px;margin-bottom:18px"></div>
+            <div class="irow"><div class="sk" style="width:82px;height:26px;border-radius:999px"></div><div class="sk" style="width:64px;height:26px;border-radius:999px"></div><div class="sk" style="width:96px;height:26px;border-radius:999px"></div></div>
+            <p style="margin:var(--sp-4) 0 0;font-size:var(--fs-xs);color:var(--muted)">Son oturum yükleniyor…</p>
+          </div>
+          <div class="b-ring">
+            <div class="ring-wrap">
+              <svg viewBox="0 0 120 120" width="196" height="196">
+                <circle cx="60" cy="60" r="52" fill="none" stroke="var(--line)" stroke-width="11"/>
+              </svg>
+              <div class="ring-mid"><b style="color:var(--muted)">—</b><span>ilerleme yok</span></div>
+            </div>
+          </div>
+          <div class="b-today">
+            <div class="sk" style="width:88px;height:26px"></div>
+            <div class="sk" style="width:100%;height:40px;border-radius:var(--radius-m)"></div>
+            <div class="b-bars">
+              <i style="height:6px"></i><i style="height:6px"></i><i style="height:6px"></i><i style="height:6px"></i>
+              <i style="height:6px"></i><i style="height:6px"></i><i style="height:6px"></i><i style="height:6px"></i>
+              <i style="height:6px"></i><i style="height:6px"></i><i style="height:6px"></i><i style="height:6px"></i>
+              <i style="height:6px"></i><i style="height:6px"></i>
+            </div>
+          </div>
+        </div>
+        <div class="shelf">
+          <div class="shelf-head"><h2>Devam edenler</h2><span class="n">3 kitap</span><span class="more">Tümü</span></div>
+          <div class="is-error">
+            <svg class="ico"><use href="#i-alert"/></svg>
+            <span><b>İnce Memed</b> ilerlemesi kaydedilemedi — bağlantı 3 denemede kesildi (14:07)</span>
+            <span class="act">Tekrar dene</span>
+          </div>
+          <div class="b-row">
+            <div><h3>Benim Adım Kırmızı</h3><p class="who">Hasan Ali Toptaş · 208 s. · dün</p></div>
+            <div><div class="track"><i style="width:12%"></i></div><p class="who" style="margin-top:6px">s. 25 / 208</p></div>
+            <div class="pct">%12</div>
+          </div>
+          <div class="b-row">
+            <div><h3>Tutunamayanlar</h3><p class="who">Haluk Piyes · 432 s. · 6 Eki</p></div>
+            <div><div class="track"><i style="width:87%"></i></div><p class="who" style="margin-top:6px">s. 376 / 432</p></div>
+            <div class="pct">%87</div>
+          </div>
+          <div class="b-row">
+            <div><h3>Kafatası</h3><p class="who">Franz Kafka · 190 s. · 4 Eki</p></div>
+            <div><div class="track"><i style="width:41%"></i></div><p class="who" style="margin-top:6px">s. 78 / 190</p></div>
+            <div class="pct">%41</div>
+          </div>
+        </div>
+        <p style="margin:0;font-size:var(--fs-2xs);color:var(--muted)">Son eşitleme 14:09 · çevrimdışındaysan değişiklikler bağlantı gelince gönderilir.</p>
+        <div class="shelf">
+          <div class="shelf-head"><h2>Okuma listesi</h2><span class="n">18 kitap</span><span class="more">Listeyi düzenle</span></div>
+          <div class="b-row" style="gap:var(--sp-3)">
+            <div class="sk" style="width:180px;height:15px"></div>
+            <div class="sk" style="width:190px;height:3px"></div>
+            <div class="sk" style="width:38px;height:15px"></div>
+          </div>
+          <div class="b-row" style="gap:var(--sp-3)">
+            <div class="sk" style="width:224px;height:15px"></div>
+            <div class="sk" style="width:190px;height:3px"></div>
+            <div class="sk" style="width:38px;height:15px"></div>
+          </div>
+          <div class="b-row" style="gap:var(--sp-3)">
+            <div class="sk" style="width:148px;height:15px"></div>
+            <div class="sk" style="width:190px;height:3px"></div>
+            <div class="sk" style="width:38px;height:15px"></div>
+          </div>
+          <div class="b-row" style="gap:var(--sp-3)">
+            <div class="sk" style="width:196px;height:15px"></div>
+            <div class="sk" style="width:190px;height:3px"></div>
+            <div class="sk" style="width:38px;height:15px"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="note">Kısmi başarısızlık gerçekçi: liste geldi, bir kitabın ilerlemesi gelmedi. Hata satırda ikon + kitap adı + ne olduğu + eylem; renk tek başına anlam taşımıyor.</div>
+</section>
+
+<!-- ============================ C · ANA ============================ -->
+<section class="board" id="c-ana" data-board="c-ana" style="--w:1280px">
+  <header><b>C · Kenar Notları — ana ekran (idle)</b><code>1280×860</code></header>
+  <div class="artboard" style="width:1280px;height:860px">
+    <div class="c">
+      <div class="c-top">
+        <div class="c-sw">
+          <button class="ghost icon-only"><svg class="ico"><use href="#i-left"/></svg></button>
+          <div class="cover" style="width:28px;height:38px;font-size:var(--fs-s);border-radius:2px 3px 3px 2px">İ</div>
+          <div><div class="t">İnce Memed</div><div style="font-size:var(--fs-2xs);color:var(--muted)">Yaşar Kemal · 4 not</div></div>
+          <span class="chip on num">%63</span>
+          <button class="ghost icon-only"><svg class="ico"><use href="#i-right"/></svg></button>
+        </div>
+        <button class="btn btn-p" style="margin-left:auto"><svg class="ico"><use href="#i-plus"/></svg>Not ekle</button>
+        <button class="btn" style="width:40px;padding:0;justify-content:center"><svg class="ico"><use href="#i-dots"/></svg></button>
+      </div>
+      <div class="c-body">
+        <aside class="c-idx">
+          <div class="c-grp">Devam edenler<span class="n">3</span></div>
+          <div class="c-li is-on">
+            <span class="pct">%63</span>
+            <h3>İnce Memed</h3><p>Yaşar Kemal · 245 s.</p>
+            <div class="track"><i style="width:63%"></i><b class="notch" style="left:63%"></b></div>
+          </div>
+          <div class="c-li">
+            <span class="pct">%12</span>
+            <h3>Benim Adım Kırmızı</h3><p>Hasan Ali Toptaş · 208 s.</p>
+            <div class="track"><i style="width:12%"></i></div>
+          </div>
+          <div class="c-li">
+            <span class="pct">%87</span>
+            <h3>Tutunamayanlar</h3><p>Haluk Piyes · 432 s.</p>
+            <div class="track"><i style="width:87%"></i></div>
+          </div>
+          <div class="c-grp">Okuma listesi<span class="n">18</span></div>
+          <div class="c-li">
+            <span class="pct">%28</span>
+            <h3>Şah Mat</h3><p>Philip K. Dick · 264 s.</p>
+            <div class="track"><i style="width:28%"></i></div>
+          </div>
+          <div class="c-li">
+            <span class="pct">%41</span>
+            <h3>Kafatası</h3><p>Franz Kafka · 190 s.</p>
+            <div class="track"><i style="width:41%"></i></div>
+          </div>
+          <div class="c-li">
+            <span class="pct">%12</span>
+            <h3>Kürk Mantolu Madonna</h3><p>Sabahattin Ali · 176 s.</p>
+            <div class="track"><i style="width:12%"></i></div>
+          </div>
+          <div class="c-grp">Bitirdiklerim<span class="n">11</span></div>
+          <div class="c-li">
+            <span class="pct">3 Eki</span>
+            <h3>Aşk</h3><p>Orhan Pamuk · 77 s. · bitti</p>
+            <div class="rate" style="margin-top:8px;height:10px"><i class="on" style="height:10px"></i><i class="on" style="height:10px"></i><i class="on" style="height:10px"></i><i class="on" style="height:10px"></i><i class="on" style="height:10px"></i></div>
+          </div>
+          <div class="c-li">
+            <span class="pct">19 Eyl</span>
+            <h3>Bereketli Toprak Üzerinde</h3><p>Sabahattin Ali · 183 s. · bitti</p>
+            <div class="rate" style="margin-top:8px;height:10px"><i class="on" style="height:10px"></i><i class="on" style="height:10px"></i><i class="on" style="height:10px"></i><i class="on" style="height:10px"></i><i style="height:10px"></i></div>
+          </div>
+        </aside>
+        <div class="c-gut"><span>İnce Memed · s. 148</span></div>
+        <main class="c-notes">
+          <div class="c-notes-head">
+            <h2>İnce Memed notları</h2>
+            <span style="font-size:var(--fs-2xs);color:var(--muted)" class="num">4</span>
+            <div class="c-filters">
+              <span class="chip on">Tümü</span><span class="chip">Aklımda kalan</span><span class="chip">Alıntı</span>
+            </div>
+            <button class="btn" style="height:32px">Sayfa sırasıyla <svg class="ico" style="width:14px;height:14px"><use href="#i-dots"/></svg></button>
+          </div>
+          <div class="note-list">
+            <article class="nt">
+              <p>Çoban Memed'in ilk kaçışından sonra yolun kesildiği an romanın bütün ağırlık merkezidir; ilerleyen bölümler hep bu anın uzantısı gibi okunuyor.</p>
+              <div class="meta"><span class="pg num">s. 148</span><span>13 Eki 2026</span><svg class="ico" style="color:var(--accent)"><use href="#i-mark"/></svg><span>2 bağlı not</span></div>
+            </article>
+            <article class="nt">
+              <p>Yazarın dili burada ilk kez hızlanıyor: kısa cümleler, tekrar eden bir ritim. Kendi notum olarak tutuyorum — okuma hızım da tam burada değişti.</p>
+              <div class="meta"><span class="pg num">s. 96</span><span>11 Eki 2026</span><span>4. bölüm</span></div>
+            </article>
+            <article class="nt is-hollow">
+              <div class="nt-quote">
+                <span class="qm">"</span>
+                <div>
+                  <p style="color:var(--muted)">Alıntı metni kopyalanmamış. Yalnızca sayfa konumu tutuluyor — kaynağa dönüp metni elle ekleyebilirsin.</p>
+                  <div class="meta"><span class="pg num">s. 212</span><span>9 Eki 2026</span><span style="color:var(--accent)">Kaynağa dön</span></div>
+                </div>
+              </div>
+            </article>
+            <article class="nt">
+              <p>Sonraki okuma için: aynı dönemin başka iki kitabıyla karşılaştır — aynı yılın iki anlatısı nerede ayrışıyor?</p>
+              <div class="meta"><span class="pg num">s. 61</span><span>2 Eki 2026</span><span>Etiket: karşılaştırma</span></div>
+            </article>
+          </div>
+          <div class="c-compose">
+            <div class="c-field">İnce Memed için yeni not…</div>
+            <span style="font-size:var(--fs-2xs);color:var(--muted)">s.</span>
+            <div class="c-page">175</div>
+            <button class="btn btn-p">Kaydet</button>
+          </div>
+        </main>
+      </div>
+    </div>
+  </div>
+  <div class="note">Liste kenarda içindekiler gibi (320 px), notlar sağda okuma ölçüsünde (62 karakter). Not yazma kalıcı alt şeritte — modal yok. Alıntı kartındaki boş metin gerçek bir durum (kaynak metni yok).</div>
+</section>
+
+<!-- ============================ C · ODAK ============================ -->
+<section class="board" id="c-focus" data-board="c-focus" style="--w:1280px">
+  <header><b>C · not odaklı + satır hover</b><code>1280×860</code></header>
+  <div class="artboard" style="width:1280px;height:860px">
+    <div class="c">
+      <div class="c-top">
+        <div class="c-sw">
+          <button class="ghost icon-only"><svg class="ico"><use href="#i-left"/></svg></button>
+          <div class="cover" style="width:28px;height:38px;font-size:var(--fs-s);border-radius:2px 3px 3px 2px">T</div>
+          <div><div class="t">Tutunamayanlar</div><div style="font-size:var(--fs-2xs);color:var(--muted)">Haluk Piyes · 9 not</div></div>
+          <span class="chip on num">%87</span>
+          <button class="ghost icon-only"><svg class="ico"><use href="#i-right"/></svg></button>
+        </div>
+        <button class="btn btn-p" style="margin-left:auto"><svg class="ico"><use href="#i-plus"/></svg>Not ekle</button>
+        <button class="btn" style="width:40px;padding:0;justify-content:center"><svg class="ico"><use href="#i-dots"/></svg></button>
+      </div>
+      <div class="c-body">
+        <aside class="c-idx">
+          <div class="c-grp">Devam edenler<span class="n">3</span></div>
+          <div class="c-li is-hover">
+            <span class="pct">%63</span>
+            <h3>İnce Memed</h3><p>Yaşar Kemal · 245 s.</p>
+            <div class="track"><i style="width:63%"></i></div>
+          </div>
+          <div class="c-li is-on">
+            <span class="pct">%87</span>
+            <h3>Tutunamayanlar</h3><p>Haluk Piyes · 432 s.</p>
+            <div class="track"><i style="width:87%"></i><b class="notch" style="left:87%"></b></div>
+          </div>
+          <div class="c-li">
+            <span class="pct">%12</span>
+            <h3>Benim Adım Kırmızı</h3><p>Hasan Ali Toptaş · 208 s.</p>
+            <div class="track"><i style="width:12%"></i></div>
+          </div>
+          <div class="c-grp">Okuma listesi<span class="n">18</span></div>
+          <div class="c-li">
+            <span class="pct">%28</span>
+            <h3>Şah Mat</h3><p>Philip K. Dick · 264 s.</p>
+            <div class="track"><i style="width:28%"></i></div>
+          </div>
+          <div class="c-li">
+            <span class="pct">%41</span>
+            <h3>Kafatası</h3><p>Franz Kafka · 190 s.</p>
+            <div class="track"><i style="width:41%"></i></div>
+          </div>
+          <div class="c-grp">Bitirdiklerim<span class="n">11</span></div>
+          <div class="c-li">
+            <span class="pct">3 Eki</span>
+            <h3>Aşk</h3><p>Orhan Pamuk · 77 s. · bitti</p>
+            <div class="rate" style="margin-top:8px;height:10px"><i class="on" style="height:10px"></i><i class="on" style="height:10px"></i><i class="on" style="height:10px"></i><i class="on" style="height:10px"></i><i class="on" style="height:10px"></i></div>
+          </div>
+          <div class="c-li">
+            <span class="pct">19 Eyl</span>
+            <h3>Bereketli Toprak Üzerinde</h3><p>Sabahattin Ali · 183 s. · bitti</p>
+            <div class="rate" style="margin-top:8px;height:10px"><i class="on" style="height:10px"></i><i class="on" style="height:10px"></i><i class="on" style="height:10px"></i><i class="on" style="height:10px"></i><i style="height:10px"></i></div>
+          </div>
+        </aside>
+        <div class="c-gut"><span>Tutunamayanlar · s. 376</span></div>
+        <main class="c-notes">
+          <div class="c-notes-head">
+            <h2>Tutunamayanlar notları</h2>
+            <span style="font-size:var(--fs-2xs);color:var(--muted)" class="num">9</span>
+            <div class="c-filters">
+              <span class="chip on">Tümü</span><span class="chip">Aklımda kalan</span><span class="chip">Alıntı</span>
+            </div>
+            <button class="btn" style="height:32px">Sayfa sırasıyla <svg class="ico" style="width:14px;height:14px"><use href="#i-dots"/></svg></button>
+          </div>
+          <div class="note-list">
+            <article class="nt is-focus">
+              <p>İki uç arasındaki mesafe romanda bir estetik değil, bir ahlak ölçüsü: kalabalık ne kadar dağılmış olursa olsun ortada bir karar noktası kalıyor.</p>
+              <div class="meta"><span class="pg num">s. 376</span><span>6 Eki 2026</span><svg class="ico" style="color:var(--accent)"><use href="#i-mark"/></svg><span>3 bağlı not</span><span style="margin-left:auto;color:var(--accent)">Düzenle · Sil</span></div>
+            </article>
+            <article class="nt">
+              <p>Adların tekrarı burada bir liste gibi okunuyor; harita değil, sıralama. Tekrar eden adı sayfa sayfa takip etmek istiyorum.</p>
+              <div class="meta"><span class="pg num">s. 244</span><span>28 Eyl 2026</span><span>Etiket: kişiler</span></div>
+            </article>
+            <article class="nt is-hollow">
+              <div class="nt-quote">
+                <span class="qm">"</span>
+                <div>
+                  <p style="color:var(--muted)">Alıntı metni kopyalanmamış. Yalnızca sayfa konumu tutuluyor — kaynağa dönüp metni elle ekleyebilirsin.</p>
+                  <div class="meta"><span class="pg num">s. 118</span><span>21 Eyl 2026</span><span style="color:var(--accent)">Kaynağa dön</span></div>
+                </div>
+              </div>
+            </article>
+          </div>
+          <div class="c-compose">
+            <div class="c-field">Tutunamayanlar için yeni not…</div>
+            <span style="font-size:var(--fs-2xs);color:var(--muted)">s.</span>
+            <div class="c-page">376</div>
+            <button class="btn btn-p">Kaydet</button>
+          </div>
+        </main>
+      </div>
+    </div>
+  </div>
+  <div class="note">Seçili kitap başlık rengi ve dolu cetvelle anlaşılıyor (kenar çizgisi yok). Odak alan not: 2 px halka + eylemler satır içinde beliriyor, klavye ile gezinilebilir.</div>
+</section>
+
+<!-- ============================ C · UZUN METİN ============================ -->
+<section class="board" id="c-long" data-board="c-long" style="--w:1280px">
+  <header><b>C · uzun metin, taşma ve kırpma kuralları</b><code>1280×860</code></header>
+  <div class="artboard" style="width:1280px;height:860px">
+    <div class="c">
+      <div class="c-top">
+        <div class="c-sw">
+          <button class="ghost icon-only"><svg class="ico"><use href="#i-left"/></svg></button>
+          <div class="cover" style="width:28px;height:38px;font-size:var(--fs-s);border-radius:2px 3px 3px 2px">S</div>
+          <div style="min-width:0">
+            <div class="t" style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis">Bir Kış Gecesi: 1892'de İstanbul'da Yaşananlar Üzerine Uzun ve Dolambaçlı Bir Anlatı</div>
+            <div style="font-size:var(--fs-2xs);color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">Ahmet Mithat Efendi · Çev. Gülşen Yücel · 612 sayfa</div>
+          </div>
+          <span class="chip on num">%9</span>
+          <button class="ghost icon-only"><svg class="ico"><use href="#i-right"/></svg></button>
+        </div>
+        <button class="btn btn-p" style="margin-left:auto"><svg class="ico"><use href="#i-plus"/></svg>Not ekle</button>
+        <button class="btn" style="width:40px;padding:0;justify-content:center"><svg class="ico"><use href="#i-dots"/></svg></button>
+      </div>
+      <div class="c-body">
+        <aside class="c-idx">
+          <div class="c-grp">Okuma listesi · 18 kitap<span class="n">+15</span></div>
+          <div class="c-li is-on">
+            <span class="pct">%9</span>
+            <h3 class="clamp2">Bir Kış Gecesi: 1892'de İstanbul'da Yaşananlar Üzerine Uzun ve Dolambaçlı Bir Anlatı</h3><p>Ahmet Mithat Efendi · Çev. Gülşen Yücel</p>
+            <div class="track"><i style="width:9%"></i><b class="notch" style="left:9%"></b></div>
+          </div>
+          <div class="c-li">
+            <span class="pct">%63</span>
+            <h3>İnce Memed</h3><p>Yaşar Kemal</p>
+            <div class="track"><i style="width:63%"></i></div>
+          </div>
+          <div class="c-li">
+            <span class="pct">%41</span>
+            <h3>Caligula</h3><p>Albert Camus · Çev. Işık Kürüklü</p>
+            <div class="track"><i style="width:41%"></i></div>
+          </div>
+          <div class="c-grp">Bitirdiklerim · 11 kitap<span class="n">+11</span></div>
+        </aside>
+        <div class="c-gut"><span>uzun başlıkta ortadaki şerit kırpılır</span></div>
+        <main class="c-notes">
+          <div class="c-notes-head">
+            <h2 style="max-width:26ch;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">Bir Kış Gecesi notları</h2>
+            <span style="font-size:var(--fs-2xs);color:var(--muted)" class="num">12</span>
+            <div class="c-filters"><span class="chip on">Tümü</span><span class="chip">Aklımda kalan</span><span class="chip">Alıntı</span></div>
+            <button class="btn" style="height:32px">Sayfa sırasıyla <svg class="ico" style="width:14px;height:14px"><use href="#i-dots"/></svg></button>
+          </div>
+          <div class="note-list">
+            <article class="nt">
+              <p class="clamp2">Kırpma kuralı: başlık iki satırı geçmez, yazar satırı tek satırda üç nokta ile biter, ortadaki şerit başlığı 30 karakterde keser ve tam adı yalnızca üstteki künyede kalır — böylece düzen hiçbir zaman kırılmaz.</p>
+              <div class="meta"><span class="pg num">s. 55</span><span>8 Eki 2026</span><span>Satır uzunluğu 62 karakter</span></div>
+            </article>
+            <article class="nt">
+              <p>Uzun bir alıntının kaydı tutulduğunda sayfa referansı her zaman görünür kalır; metin kırpılsa bile s. 412 etiketi kaybolmaz, çünkü etiket kartın altında kendi satırında.</p>
+              <div class="meta"><span class="pg num">s. 412</span><span>7 Eki 2026</span></div>
+            </article>
+            <article class="nt">
+              <p>Kırpmasız tam metni okumak istediğimde notu genişletme açılır; 300 karakterden sonra "devamı" bağlantısı çıkar ve tıklanınca düzenleyici açılır — düzenleyicinin içinde kırpma yoktur.</p>
+              <div class="meta"><span class="pg num">s. 289</span><span>5 Eki 2026</span><span>3 bağlı not</span></div>
+            </article>
+          </div>
+          <div class="c-compose">
+            <div class="c-field">Bir Kış Gecesi için yeni not…</div>
+            <span style="font-size:var(--fs-2xs);color:var(--muted)">s.</span>
+            <div class="c-page">55</div>
+            <button class="btn btn-p">Kaydet</button>
+          </div>
+        </main>
+      </div>
+    </div>
+  </div>
+  <div class="note">Taşma panosu: başlık 2 satır (clamp), yazar 1 satır (ellipsis), sağ üst künye tek satır, liste grupları "+15" ile katlanır. 40+ karakterlik başlıkta hiçbir şey taşmıyor.</div>
+</section>
+
+<!-- ============================ HAREKET ============================ -->
+<section class="board" id="hareket" data-board="hareket" style="--w:1180px">
+  <header><b>Hareket hikayesi — satır seçiminden not açılışına</b><code>1180×460</code></header>
+  <div class="artboard" style="width:1180px;height:460px">
+    <div style="padding:24px 28px;display:flex;flex-direction:column;gap:18px;height:100%">
+      <div style="display:flex;align-items:center;gap:16px">
+        <div style="width:300px">
+          <p style="margin:0;font-size:var(--fs-2xs);color:var(--muted)">t = 0 ms · tetikleyici</p>
+          <p style="margin:4px 0 0;font-size:var(--fs-xs)">Kullanıcı listede <b>İnce Memed</b> satırına tıklar.</p>
+        </div>
+        <div style="flex:1;display:flex;align-items:center;gap:14px">
+          <div style="border:1px solid var(--line);border-radius:var(--radius-m);background:var(--surface);padding:10px 12px;width:176px">
+            <div style="display:flex;gap:8px;align-items:center"><div class="cover" style="width:22px;height:30px;font-size:var(--fs-xs)">İ</div>
+            <div style="flex:1"><div style="font:500 var(--fs-xs)/1.2 var(--font-display)">İnce Memed</div>
+            <div class="track" style="margin-top:6px;height:3px"><i style="width:63%"></i></div></div></div>
+          </div>
+          <span style="font-size:var(--fs-2xs);color:var(--muted);white-space:nowrap">0 → %63 · 200 ms · ease-out</span>
+        </div>
+      </div>
+      <div class="hr"></div>
+      <div style="display:flex;align-items:center;gap:16px">
+        <div style="width:300px">
+          <p style="margin:0;font-size:var(--fs-2xs);color:var(--muted)">t = 120 ms · liste</p>
+          <p style="margin:4px 0 0;font-size:var(--fs-xs)">Seçili satır <b>--raised</b> yüzeye çıkar; sağdaki not sayfası soluklaşır.</p>
+        </div>
+        <div style="flex:1;display:flex;align-items:center;gap:14px">
+          <div style="border:1px solid var(--line);border-radius:var(--radius-m);background:var(--raised);padding:10px 12px;width:176px;outline:2px solid var(--accent);outline-offset:-2px">
+            <div style="display:flex;gap:8px;align-items:center"><div class="cover" style="width:22px;height:30px;font-size:var(--fs-xs)">İ</div>
+            <div style="flex:1"><div style="font:500 var(--fs-xs)/1.2 var(--font-display);color:var(--accent)">İnce Memed</div>
+            <div class="track" style="margin-top:6px;height:3px"><i style="width:63%"></i></div></div></div>
+          </div>
+          <span style="font-size:var(--fs-2xs);color:var(--muted);white-space:nowrap">yüzey 120 ms · not opaklık 1 → 0,35 · 120 ms · ease-out</span>
+        </div>
+      </div>
+      <div class="hr"></div>
+      <div style="display:flex;align-items:center;gap:16px">
+        <div style="width:300px">
+          <p style="margin:0;font-size:var(--fs-2xs);color:var(--muted)">t = 300 ms · notlar</p>
+          <p style="margin:4px 0 0;font-size:var(--fs-xs)">Yeni not bloğu yerine oturur, cetvel son değerine gelir.</p>
+        </div>
+        <div style="flex:1;display:flex;align-items:center;gap:14px">
+          <div style="border:1px solid var(--line);border-radius:var(--radius-l);background:var(--surface);padding:12px 14px;width:176px;box-shadow:var(--shadow-pop)">
+            <div style="height:5px;width:78%;background:var(--line);border-radius:2px;margin-bottom:7px"></div>
+            <div style="height:5px;width:92%;background:var(--line);border-radius:2px;margin-bottom:7px"></div>
+            <div style="height:5px;width:44%;background:var(--line);border-radius:2px"></div>
+          </div>
+          <span style="font-size:var(--fs-2xs);color:var(--muted);white-space:nowrap">translateY 8 → 0 · 220 ms · ease-out</span>
+        </div>
+      </div>
+      <div class="hr"></div>
+      <div style="display:flex;align-items:center;gap:16px">
+        <div style="width:300px">
+          <p style="margin:0;font-size:var(--fs-2xs);color:var(--muted)">t = 300 ms · halka (B)</p>
+          <p style="margin:4px 0 0;font-size:var(--fs-xs)">Aynı veri yükleme bitince halkaya çizilir: <b>0 → %63</b>, çizgi kalınlığı değişmez.</p>
+        </div>
+        <div style="flex:1;display:flex;align-items:center;gap:14px">
+          <div style="position:relative;width:72px;height:72px">
+            <svg viewBox="0 0 120 120" width="72" height="72">
+              <circle cx="60" cy="60" r="52" fill="none" stroke="var(--line)" stroke-width="11"/>
+              <circle cx="60" cy="60" r="52" fill="none" stroke="var(--accent)" stroke-width="11" stroke-linecap="round"
+                      stroke-dasharray="205.9 326.7" transform="rotate(-90 60 60)"/>
+            </svg>
+          </div>
+          <span style="font-size:var(--fs-2xs);color:var(--muted)">stroke-dasharray 0 → 205,9 · 300 ms · ease-out</span>
+        </div>
+      </div>
+      <div class="hr"></div>
+      <div style="display:grid;grid-template-columns:300px 1fr;gap:16px;font-size:var(--fs-xs);color:var(--muted)">
+        <p style="margin:0">Azaltılmış hareket (prefers-reduced-motion): geçiş kaybolur, yalnız opaklık ve dolgu değişimi anlık uygulanır; kahraman bölgenin yerleşimi değişmez.</p>
+        <p style="margin:0">Tek eğri ailesi · üç süre: mikro 120 ms (hover, focus), küçük 200 ms (seçim, not girişi), büyük 300 ms (halka, panel). Çıkış girişten kısa ve <span style="font-family:var(--font-ui)">ease-in</span>.</p>
+      </div>
+    </div>
+  </div>
+  <div class="note">Hareket "neden nereye gitti" sorusunu cevaplar: her geçiş kaynağına bağlı, dekorasyon yok. Süreler spec.md ile birebir aynı.</div>
+</section>
+
+<!-- ============================ GECE TEMASI ============================ -->
+<section class="board" id="tema-gece" data-board="tema-gece" style="--w:1280px">
+  <header><b>Gece teması — A · Kütüphane Defteri yeniden boyanır</b><code>1280×860</code></header>
+  <div class="artboard skin-gece" style="width:1280px;height:860px">
+    <div class="a">
+      <div class="a-top">
+        <span class="a-brand serif">Kitap Defteri</span>
+        <span class="chip">13 Eki 2026, Salı</span>
+        <div class="a-search"><svg class="ico"><use href="#i-search"/></svg>Kitap ya da not ara<kbd>⌘K</kbd></div>
+        <button class="btn btn-p"><svg class="ico"><use href="#i-plus"/></svg>Kitap ekle</button>
+      </div>
+      <div class="a-body">
+        <aside class="a-rail">
+          <div class="a-me">
+            <div class="a-av">DY</div>
+            <div>
+              <div style="font-size:var(--fs-xs);font-weight:600">Defne Yılmaz</div>
+              <div style="font-size:var(--fs-2xs);color:var(--muted)">2026 hedefi · 24 kitap</div>
+            </div>
+          </div>
+          <nav class="a-nav">
+            <div class="a-item on"><svg class="ico"><use href="#i-book"/></svg>Devam edenler<span class="n">3</span></div>
+            <div class="a-item"><svg class="ico"><use href="#i-stack"/></svg>Okuma listesi<span class="n">18</span></div>
+            <div class="a-item"><svg class="ico"><use href="#i-check"/></svg>Bitirdiklerim<span class="n">11</span></div>
+            <div class="a-item"><svg class="ico"><use href="#i-note"/></svg>Tüm notlar<span class="n">63</span></div>
+            <div class="a-item"><svg class="ico"><use href="#i-mark"/></svg>Raftan çıkanlar<span class="n">47</span></div>
+          </nav>
+          <div class="a-foot">
+            <div class="a-led"><span class="mut">Bu yıl okunan</span><b class="num">1.284 sayfa</b></div>
+            <div class="a-led" style="margin-top:6px"><span class="mut">Son 12 hafta</span><b class="num">312 s.</b></div>
+            <div class="a-spark">
+              <i style="height:7px"></i><i style="height:11px"></i><i style="height:4px"></i><i style="height:16px"></i>
+              <i style="height:9px"></i><i style="height:13px"></i><i style="height:6px"></i><i style="height:19px"></i>
+              <i style="height:14px"></i><i style="height:8px"></i><i class="on" style="height:22px"></i><i class="on" style="height:17px"></i>
+            </div>
+          </div>
+        </aside>
+        <main class="a-main">
+          <div class="a-head">
+            <h2 class="sec-title">Devam edenler</h2>
+            <p class="a-sum">3 kitap · toplam 1.165 sayfa okundu · kalan 686 sayfa</p>
+            <button class="btn" style="height:32px">Son okumaya göre <svg class="ico" style="width:14px;height:14px"><use href="#i-dots"/></svg></button>
+          </div>
+          <div class="a-list">
+            <article class="row is-hover">
+              <div class="cover">İ</div>
+              <div>
+                <h3 class="row-title">İnce Memed</h3>
+                <p class="row-meta">Yaşar Kemal · YKY · 245 sayfa · 1968</p>
+                <div class="track"><i style="width:63%"></i><b class="notch" style="left:63%"></b></div>
+                <p class="row-sub"><span class="pg">s. 148 / 245</span><span>2 gün önce</span><span>4 not</span></p>
+              </div>
+              <div class="row-acts">
+                <button class="ghost"><svg class="ico"><use href="#i-pen"/></svg>Not ekle</button>
+                <button class="ghost"><svg class="ico"><use href="#i-pause"/></svg>Duraklat</button>
+                <button class="ghost icon-only"><svg class="ico"><use href="#i-dots"/></svg></button>
+              </div>
+            </article>
+            <article class="row">
+              <div class="cover">B</div>
+              <div>
+                <h3 class="row-title">Benim Adım Kırmızı</h3>
+                <p class="row-meta">Hasan Ali Toptaş · Doğan Kitap · 208 sayfa · 1998</p>
+                <div class="track"><i style="width:12%"></i><b class="notch" style="left:12%"></b></div>
+                <p class="row-sub"><span class="pg">s. 25 / 208</span><span>dün</span><span>1 not</span><span>41 dk oturum</span></p>
+              </div>
+              <div class="row-end"><span class="row-pct">%12</span><svg class="ico mut"><use href="#i-dots"/></svg></div>
+            </article>
+            <article class="row">
+              <div class="cover">T</div>
+              <div>
+                <h3 class="row-title">Tutunamayanlar</h3>
+                <p class="row-meta">Haluk Piyes · Doğan Kitap · 432 sayfa · 1972</p>
+                <div class="track"><i style="width:87%"></i><b class="notch" style="left:87%"></b></div>
+                <p class="row-sub"><span class="pg">s. 376 / 432</span><span>6 Eki</span><span>9 not</span><span>1 sa 12 dk oturum</span></p>
+              </div>
+              <div class="row-end"><span class="row-pct">%87</span><svg class="ico mut"><use href="#i-dots"/></svg></div>
+            </article>
+            <article class="row">
+              <div class="cover">K</div>
+              <div>
+                <h3 class="row-title">Kafatası</h3>
+                <p class="row-meta">Franz Kafka · Çev. Ahmet Cemal · 190 sayfa · 2015</p>
+                <div class="track"><i style="width:41%"></i><b class="notch" style="left:41%"></b></div>
+                <p class="row-sub"><span class="pg">s. 78 / 190</span><span>4 Eki</span><span>2 not</span><span>27 dk oturum</span></p>
+              </div>
+              <div class="row-end"><span class="row-pct">%41</span><svg class="ico mut"><use href="#i-dots"/></svg></div>
+            </article>
+            <article class="row">
+              <div class="cover">Ş</div>
+              <div>
+                <h3 class="row-title">Şah Mat</h3>
+                <p class="row-meta">Philip K. Dick · İthaki · 264 sayfa · 2019</p>
+                <div class="track"><i style="width:28%"></i><b class="notch" style="left:28%"></b></div>
+                <p class="row-sub"><span class="pg">s. 74 / 264</span><span>1 Eki</span><span>not yok</span><span>22 dk oturum</span></p>
+              </div>
+              <div class="row-end"><span class="row-pct">%28</span><svg class="ico mut"><use href="#i-dots"/></svg></div>
+            </article>
+            <article class="row">
+              <div class="cover">K</div>
+              <div>
+                <h3 class="row-title">Kürk Mantolu Madonna</h3>
+                <p class="row-meta">Sabahattin Ali · Yapı Kredi · 176 sayfa · 1996</p>
+                <div class="track"><i style="width:12%"></i><b class="notch" style="left:12%"></b></div>
+                <p class="row-sub"><span class="pg">s. 21 / 176</span><span>28 Eyl</span><span>3 not</span><span>9 dk oturum</span></p>
+              </div>
+              <div class="row-end"><span class="row-pct">%12</span><svg class="ico mut"><use href="#i-dots"/></svg></div>
+            </article>
+          </div>
+          <div class="a-bar">
+            <svg class="ico"><use href="#i-chart"/></svg>
+            <span>Bu ay <b>312 sayfa</b> · geçen aya göre <b>+%18</b></span>
+            <span style="margin-left:auto">Aylık hedefin <b>%64</b>'ündesin · 3 gün üst üste okudun</span>
+          </div>
+        </main>
+      </div>
+    </div>
+  </div>
+  <div class="note">Gece kendi tasarımı, ters çevirme değil: yüzeyler biraz daha derin, mürekkep açılıyor (#944123 → #eb9070), hatlar koyulaşmadan kalıyor. Üstteki tema düğmeleri tuvalin tamamını canlı değiştirir.</div>
+</section>
+
+<!-- ============================ TOKENLAR ============================ -->
+<section class="board" id="token" data-board="token" style="--w:1180px">
+  <header><b>Tokenlar — palet, tip, ölçek, hareket</b><code>1180×520</code></header>
+  <div class="artboard" style="width:1180px;height:520px">
+    <div style="padding:24px 28px;display:flex;flex-direction:column;gap:18px;height:100%">
+      <div>
+        <p style="margin:0 0 8px;font-size:var(--fs-2xs);color:var(--muted)">Palet · palette.py --hue 40 --chroma 0.12 --mood warm --scheme mono (OKLCH'de üretildi, buraya düz kopyalandı)</p>
+        <div style="display:flex;gap:10px;flex-wrap:wrap">
+          <div style="background:var(--bg);border:1px solid var(--line);border-radius:var(--radius-m);padding:8px 10px;width:118px"><b style="font-size:var(--fs-2xs)">bg</b><div style="font-size:var(--fs-2xs);color:var(--muted)">14,05:1 metin</div><div class="num" style="font-size:var(--fs-2xs)">#faf1ee</div></div>
+          <div style="background:var(--surface);border:1px solid var(--line);border-radius:var(--radius-m);padding:8px 10px;width:118px"><b style="font-size:var(--fs-2xs)">surface</b><div style="font-size:var(--fs-2xs);color:var(--muted)">14,88:1</div><div class="num" style="font-size:var(--fs-2xs)">#fff8f5</div></div>
+          <div style="background:var(--raised);border:1px solid var(--line);border-radius:var(--radius-m);padding:8px 10px;width:118px"><b style="font-size:var(--fs-2xs)">raised</b><div style="font-size:var(--fs-2xs);color:var(--muted)">hover yüzeyi</div><div class="num" style="font-size:var(--fs-2xs)">#fffdfc</div></div>
+          <div style="background:var(--accent);color:var(--on-accent);border-radius:var(--radius-m);padding:8px 10px;width:118px"><b style="font-size:var(--fs-2xs)">accent</b><div style="font-size:var(--fs-2xs);opacity:.86">6,58:1 yüzeyde</div><div class="num" style="font-size:var(--fs-2xs)">#944123</div></div>
+          <div style="background:var(--accent-soft);border-radius:var(--radius-m);padding:8px 10px;width:118px"><b style="font-size:var(--fs-2xs)">accent-soft</b><div style="font-size:var(--fs-2xs);color:var(--muted)">seçili yüzey</div><div class="num" style="font-size:var(--fs-2xs)">#fee0d6</div></div>
+          <div style="background:var(--text);color:var(--bg);border-radius:var(--radius-m);padding:8px 10px;width:118px"><b style="font-size:var(--fs-2xs)">text</b><div style="font-size:var(--fs-2xs);opacity:.8">14,05:1 arka planda</div><div class="num" style="font-size:var(--fs-2xs)">#292220</div></div>
+          <div style="background:var(--muted);color:var(--bg);border-radius:var(--radius-m);padding:8px 10px;width:118px"><b style="font-size:var(--fs-2xs)">muted</b><div style="font-size:var(--fs-2xs);opacity:.86">5,27:1 yüzeyde</div><div class="num" style="font-size:var(--fs-2xs)">#726662</div></div>
+          <div style="background:var(--line);border-radius:var(--radius-m);padding:8px 10px;width:118px"><b style="font-size:var(--fs-2xs)">line</b><div style="font-size:var(--fs-2xs);color:var(--muted)">1 px hairline</div><div class="num" style="font-size:var(--fs-2xs)">#e0d5d1</div></div>
+          <div style="background:var(--ok);color:var(--on-accent);border-radius:var(--radius-m);padding:8px 10px;width:118px"><b style="font-size:var(--fs-2xs)">ok</b><div style="font-size:var(--fs-2xs);opacity:.86">5,96:1 · "bitti"</div><div class="num" style="font-size:var(--fs-2xs)">#2b6d3d</div></div>
+          <div style="background:var(--danger);color:var(--on-accent);border-radius:var(--radius-m);padding:8px 10px;width:118px"><b style="font-size:var(--fs-2xs)">danger</b><div style="font-size:var(--fs-2xs);opacity:.86">6,65:1 · hata</div><div class="num" style="font-size:var(--fs-2xs)">#9a3932</div></div>
+        </div>
+        <p style="margin:8px 0 0;font-size:var(--fs-2xs);color:var(--muted)">Gece: bg #130e0c · surface #181210 · line #292220 · text #e9dfdb · accent #eb9070 · muted #a89b97. Durum hiçbir yerde yalnız renkle anlatılmıyor: her zaman ikon + metin.</p>
+      </div>
+      <div class="hr"></div>
+      <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:24px;font-size:var(--fs-xs)">
+        <div>
+          <p style="margin:0 0 8px;font-weight:600">Tip ölçeği (oran 1,2, taban 15)</p>
+          <div style="display:flex;flex-direction:column;gap:5px;color:var(--muted)">
+            <div><span class="serif" style="font-size:var(--fs-2xl);color:var(--text);letter-spacing:-.015em">31</span> · 2xl · Literata 600 · kahraman sayı</div>
+            <div><span class="serif" style="font-size:var(--fs-l);color:var(--text);letter-spacing:-.01em">21,5</span> · l · Literata 600 · bölüm başlığı</div>
+            <div><span class="serif" style="font-size:var(--fs-s);color:var(--text)">15</span> · s · Literata 500 · kitap adı, not metni</div>
+            <div><span style="font-size:var(--fs-xs);color:var(--text)">12,5</span> · xs · Plex Sans 400-500 · künye, etiket</div>
+            <div><span style="font-size:var(--fs-2xs);color:var(--text)">11</span> · 2xs · Plex Sans 400 · zaman damgası</div>
+          </div>
+        </div>
+        <div>
+          <p style="margin:0 0 8px;font-weight:600">Boşluk, yarıçap, ikon</p>
+          <div style="display:flex;flex-direction:column;gap:5px;color:var(--muted)">
+            <div>4 · 8 · 12 · 16 · 24 · 32 · 48 · 64 px merdiveni</div>
+            <div>grup içi 8, gruplar arası 24 — ritim farkı buradan geliyor</div>
+            <div>yarıçap: 4 (kontrol) · 9 (düğme, kutu) · 15 (kart) · pill (gerçek hap)</div>
+            <div>ikon 16/20/24 px, tek kalınlık 1,5 px, yuvarlak uç</div>
+            <div>ayrım tek araçla: 1 px hairline; gölge yalnız açılır katmanda</div>
+          </div>
+        </div>
+        <div>
+          <p style="margin:0 0 8px;font-weight:600">Hareket</p>
+          <div style="display:flex;flex-direction:column;gap:5px;color:var(--muted)">
+            <div>mikro 120 ms · hover, focus, basma</div>
+            <div>küçük 200 ms · satır seçimi, not girişi</div>
+            <div>büyük 300 ms · halka, panel, tema geçişi</div>
+            <div>ease-out giriş · ease-in çıkış (çıkış daha kısa)</div>
+            <div>prefers-reduced-motion: yalnız opaklık</div>
+            <div>tabular-nums: her güncellenen sayı</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="note">Handoff bu panoyu okur: her renk, tip adımı ve süre buradan koda çıkar; panodan başka yerde değer uydurulmaz.</div>
+</section>
+
+<!-- ============================ TİP ============================ -->
+<section class="board" id="tip" data-board="tip" style="--w:1180px">
+  <header><b>Tip karşılaştırması — Türkçe ve rakam denetimi</b><code>1180×560</code></header>
+  <div class="artboard" style="width:1180px;height:560px">
+    <div style="padding:22px 28px;display:flex;flex-direction:column;gap:12px;height:100%">
+      <p style="margin:0;font-size:var(--fs-2xs);color:var(--muted)">Önerilen çift: Literata (kitap sesi — başlıklar, not metni, kahraman rakamlar) + IBM Plex Sans (enstrüman tonu — künye, etiket, veri). Aşağıdaki adaylar aynı gerçek dizeyle test edildi; hepsinde ğüşıöç ve İstanbul ılık tam.</p>
+      <div class="hr"></div>
+      <div style="display:flex;flex-direction:column;gap:11px">
+        <div><div style="font-size:var(--fs-2xs);color:var(--muted)">Literata · ÖNERİLEN (başlık/not)</div><div style="font:500 19px/1.35 'Literata',serif">İnce Memed · s. 148 / 245 · 1.284 sayfa</div><div style="font-size:var(--fs-2xs);color:var(--muted);margin-top:2px">ĞÜŞİÖÇ ğüşıöç · İstanbul ılık · 0123456789 1.284,57</div></div>
+        <div class="hr"></div>
+        <div><div style="font-size:var(--fs-2xs);color:var(--muted)">IBM Plex Sans · ÖNERİLEN (arayüz/veri)</div><div style="font:500 19px/1.35 'IBM Plex Sans',sans-serif">İnce Memed · s. 148 / 245 · 1.284 sayfa</div><div style="font-size:var(--fs-2xs);color:var(--muted);margin-top:2px">ĞÜŞİÖÇ ğüşıöç · İstanbul ılık · 0123456789 1.284,57</div></div>
+        <div class="hr"></div>
+        <div><div style="font-size:var(--fs-2xs);color:var(--muted)">Source Serif 4</div><div style="font:500 19px/1.35 'Source Serif 4',serif">İnce Memed · s. 148 / 245 · 1.284 sayfa</div><div style="font-size:var(--fs-2xs);color:var(--muted);margin-top:2px">ĞÜŞİÖÇ ğüşıöç · İstanbul ılık · 0123456789 1.284,57</div></div>
+        <div class="hr"></div>
+        <div><div style="font-size:var(--fs-2xs);color:var(--muted)">Fraunces</div><div style="font:500 19px/1.35 'Fraunces',serif">İnce Memed · s. 148 / 245 · 1.284 sayfa</div><div style="font-size:var(--fs-2xs);color:var(--muted);margin-top:2px">ĞÜŞİÖÇ ğüşıöç · İstanbul ılık · 0123456789 1.284,57</div></div>
+        <div class="hr"></div>
+        <div><div style="font-size:var(--fs-2xs);color:var(--muted)">Newsreader</div><div style="font:500 19px/1.35 'Newsreader',serif">İnce Memed · s. 148 / 245 · 1.284 sayfa</div><div style="font-size:var(--fs-2xs);color:var(--muted);margin-top:2px">ĞÜŞİÖÇ ğüşıöç · İstanbul ılık · 0123456789 1.284,57</div></div>
+        <div class="hr"></div>
+        <div><div style="font-size:var(--fs-2xs);color:var(--muted)">Public Sans</div><div style="font:500 19px/1.35 'Public Sans',sans-serif">İnce Memed · s. 148 / 245 · 1.284 sayfa</div><div style="font-size:var(--fs-2xs);color:var(--muted);margin-top:2px">ĞÜŞİÖÇ ğüşıöç · İstanbul ılık · 0123456789 1.284,57</div></div>
+      </div>
+    </div>
+  </div>
+  <div class="note">Yüzler Google Fonts'tan canlı çekiliyor; ekran görüntüsünde Literata ve IBM Plex Sans gerçekten render oluyorsa pano doğrudur (sessiz geri düşme yalan söylerdi).</div>
+</section>
+
+</div>
+</div>
+<script>
+(function(){
+  var q=new URLSearchParams(location.search), only=q.get('only'), th=q.get('theme');
+  function theme(id){document.documentElement.dataset.theme=id;
+    document.querySelectorAll('.themes button').forEach(function(b){b.setAttribute('aria-pressed',b.dataset.theme===id)});
+    try{localStorage.setItem('canvas-theme',id)}catch(e){}}
+  document.querySelectorAll('.themes button').forEach(function(b){b.onclick=function(){theme(b.dataset.theme)}});
+  try{th=th||localStorage.getItem('canvas-theme')}catch(e){}
+  theme(th||'kagit');
+  if(only){document.body.classList.add('only');var el=document.querySelector('[data-board="'+only+'"]');if(el)el.classList.add('on');}
+})();
+</script>
+</body>
+</html><!-- cv-runtime -->
+<script>
+/* canvas-runtime: turns any page whose boards carry [data-board] into a pan/zoom infinite canvas.
+ * Injected inline by new-canvas.py / canvasify.py. No dependencies. Never needed by Claude's own Design canvas.
+ * Gestures: drag background = pan, wheel = pan (or zoom, toggle), ctrl/cmd+wheel or pinch = zoom,
+ * double-click background = fit all, F / expand button = focus a board, Esc = back, arrows = next/prev board in focus,
+ * 0 = fit all, 1 = 100%, + / - = zoom, download button = board as standalone HTML.
+ * URL: ?only=<id> single board (used by shoot.sh) · ?flat=1 classic scroll page · #<id> opens focused on a board.
+ */
+(function () {
+  if (window.__canvasRuntime) return;
+  window.__canvasRuntime = true;
+  var doc = document, root = doc.documentElement, body = doc.body;
+  var q = new URLSearchParams(location.search);
+  var all = [].slice.call(doc.querySelectorAll('[data-board]')).filter(function (b) { return !b.parentElement.closest('[data-board]'); });
+  if (!all.length) return;
+  var SKIP = /^(SCRIPT|STYLE|LINK|META|TITLE|TEMPLATE)$/;
+  var reduce = window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+  /* ---------- ?only=<id>: show one board, nothing else (screenshots) ---------- */
+  var only = q.get('only');
+  if (only) {
+    var target = all.filter(function (b) { return b.dataset.board === only; })[0];
+    if (target) {
+      all.forEach(function (b) { if (b !== target) b.style.display = 'none'; });
+      for (var n = target; n && n !== body; n = n.parentElement) {
+        [].forEach.call(n.parentElement.children, function (s) { if (s !== n && !SKIP.test(s.tagName)) s.style.display = 'none'; });
+      }
+      root.dataset.cv = 'only';
+    }
+    return;
+  }
+  if (q.get('flat')) { root.dataset.cv = 'flat'; return; }
+
+  /* ---------- structure: world = lowest common ancestor of the boards ---------- */
+  function lca(els) {
+    var a = els[0].parentElement;
+    while (a && !els.every(function (e) { return a.contains(e); })) a = a.parentElement;
+    return a;
+  }
+  var A = lca(all);
+  if (!A || A === body || A === root) {
+    A = doc.createElement('div');
+    all[0].parentElement.insertBefore(A, all[0]);
+    all.forEach(function (b) { A.appendChild(b); });
+  }
+  var cs0 = getComputedStyle(body), pageBg = cs0.backgroundColor, pageFg = cs0.color;
+  var pageBgOrig = pageBg;
+  if (/rgba\(0, 0, 0, 0\)|transparent/.test(pageBgOrig)) pageBgOrig = getComputedStyle(root).backgroundColor;
+  if (/rgba\(0, 0, 0, 0\)|transparent/.test(pageBgOrig)) pageBgOrig = '#ffffff';
+  pageBg = '#0f1211'; pageFg = 'rgb(214, 220, 217)';
+
+  var chain = [];
+  for (var c = A; c && c !== body; c = c.parentElement) chain.push(c);
+  var chrome = [];
+  chain.forEach(function (nd) {
+    [].forEach.call(nd.parentElement.children, function (s) {
+      if (s !== nd && chain.indexOf(s) < 0 && !SKIP.test(s.tagName) && chrome.indexOf(s) < 0) chrome.push(s);
+    });
+  });
+
+  /* ---------- CSS ---------- */
+  var css = [
+    'html.cv,html.cv body{margin:0!important;padding:0!important;height:100%!important;overflow:hidden!important;overscroll-behavior:none;background:' + pageBg + '!important;touch-action:none}',
+    '.cv-anc{position:fixed!important;inset:0!important;width:auto!important;height:auto!important;max-width:none!important;max-height:none!important;margin:0!important;padding:0!important;overflow:hidden!important;border:0!important;background:transparent!important;transform:none!important;display:block!important}',
+    '.cv-world{position:absolute!important;left:0!important;top:0!important;margin:0!important;padding:48px!important;max-width:none!important;transform-origin:0 0;will-change:transform;box-sizing:content-box!important}',
+    '.cv-world.cv-anim{transition:transform .26s cubic-bezier(.2,.8,.2,1)}',
+    '.cv-world>*{max-width:none}',
+    '.cv-board-head{display:flex;align-items:center;gap:8px}',
+    '.cv-tools{margin-left:auto;display:inline-flex;gap:4px}',
+    '.cv-btn{all:unset;box-sizing:border-box;display:inline-grid;place-items:center;width:28px;height:28px;border-radius:7px;cursor:pointer;opacity:.7;color:inherit}',
+    '.cv-btn:hover,.cv-btn:focus-visible{opacity:1;background:rgba(127,127,127,.22)}',
+    '.cv-btn svg{width:16px;height:16px;stroke:currentColor;fill:none;stroke-width:1.6;stroke-linecap:round;stroke-linejoin:round}',
+    '.cv-meta,.cv-meta *{color:#aab3af!important}.cv-meta b,.cv-meta strong,.cv-board-head b{color:#e6ebe8!important}.cv-meta code{background:rgba(255,255,255,.08)!important}',
+    '.cv-art{box-shadow:0 8px 40px rgba(0,0,0,.45)!important;border-color:rgba(255,255,255,.08)!important}',
+    'body.cv-focus [data-board]:not(.cv-on){opacity:.18;transition:opacity .2s}',
+    '[data-board]{transition:opacity .2s}',
+    '#cv-hud{position:fixed;left:12px;top:12px;z-index:30;max-width:min(420px,calc(100vw - 24px));max-height:calc(100vh - 90px);overflow:auto;box-sizing:border-box;padding:12px 14px;border-radius:12px;border:1px solid rgba(127,127,127,.35);background:' + pageBg + ';color:' + pageFg + ';font:13px/1.5 system-ui,sans-serif;box-shadow:0 6px 24px rgba(0,0,0,.25)}',
+    '#cv-hud.cv-min{padding:6px 10px;cursor:pointer}#cv-hud.cv-min>*:not(.cv-hud-t){display:none!important}',
+    '#cv-hud,#cv-hud *{color:#d6dcd9!important}#cv-hud a{text-decoration:none}#cv-hud button{border-color:#3a4240!important}#cv-hud h1{font-size:16px!important;margin:0 0 4px!important}#cv-hud .cv-hud-t{display:flex;align-items:center;gap:8px;margin:0 0 6px;font-weight:600;font-size:12px;opacity:.8}#cv-hud.cv-min .cv-hud-t{margin:0}',
+    '#cv-hud>*{margin-inline:0!important;max-width:none!important}',
+    '#cv-bar{position:fixed;left:50%;bottom:14px;transform:translateX(-50%);z-index:31;display:flex;align-items:center;gap:2px;padding:4px;border-radius:12px;background:rgba(18,20,19,.94);color:#e6e9e7;border:1px solid #2d3331;font:12px system-ui,sans-serif;box-shadow:0 6px 24px rgba(0,0,0,.35)}',
+    '#cv-bar .cv-btn{width:32px;height:32px;opacity:.9}#cv-bar .cv-zoom{min-width:48px;text-align:center;font-variant-numeric:tabular-nums;opacity:.85}',
+    '#cv-bar .cv-txt{all:unset;box-sizing:border-box;padding:0 10px;height:32px;line-height:32px;border-radius:7px;cursor:pointer;opacity:.9;font:12px/32px system-ui,sans-serif}#cv-bar .cv-txt:hover,#cv-bar .cv-txt:focus-visible{background:rgba(255,255,255,.12)}',
+    '#cv-bar .cv-sep{width:1px;height:18px;background:#2d3331;margin:0 4px}',
+    '#cv-list{position:fixed;left:50%;bottom:62px;transform:translateX(-50%);z-index:32;max-height:50vh;width:min(360px,calc(100vw - 24px));overflow:auto;padding:6px;border-radius:12px;background:rgba(18,20,19,.97);color:#e6e9e7;border:1px solid #2d3331;font:13px system-ui,sans-serif;box-shadow:0 10px 30px rgba(0,0,0,.4)}',
+    '#cv-list button{all:unset;box-sizing:border-box;display:flex;width:100%;gap:10px;padding:7px 10px;border-radius:7px;cursor:pointer}#cv-list button:hover,#cv-list button:focus-visible{background:rgba(255,255,255,.12)}#cv-list small{margin-left:auto;opacity:.55;font-variant-numeric:tabular-nums}',
+    '#cv-hint{position:fixed;right:12px;bottom:14px;z-index:30;font:11px system-ui,sans-serif;color:' + pageFg + ';opacity:.5;max-width:40vw;text-align:right}',
+    '@media (max-width:640px){#cv-hint{display:none}}'
+  ].join('\n');
+  var st = doc.createElement('style'); st.id = 'cv-runtime-style'; st.textContent = css; doc.head.appendChild(st);
+
+  root.classList.add('cv');
+  chain.forEach(function (nd, i) { nd.classList.add(i === 0 ? 'cv-world' : 'cv-anc'); });
+  if (!all.length) return;
+  if (getComputedStyle(A).display === 'block') { A.style.display = 'flex'; A.style.flexWrap = 'wrap'; A.style.alignItems = 'flex-start'; A.style.gap = '56px 40px'; }
+  var area = 0;
+  all.forEach(function (b) { var r = b.getBoundingClientRect(); area += (r.width + 40) * (r.height + 80); });
+  var W = Math.max(1400, Math.round(Math.sqrt(area * (innerWidth / Math.max(400, innerHeight))) * 1.08));
+  A.style.width = W + 'px';
+
+  /* ---------- HUD (page chrome moved here), toolbar ---------- */
+  var hud = doc.createElement('div'); hud.id = 'cv-hud';
+  var hudT = doc.createElement('div'); hudT.className = 'cv-hud-t'; hudT.innerHTML = '<span>Canvas · ' + all.length + ' tahta</span><span style="margin-left:auto;opacity:.6">▾</span>';
+  hud.appendChild(hudT); chrome.forEach(function (s) { hud.appendChild(s); });
+  hudT.addEventListener('click', function () { hud.classList.toggle('cv-min'); });
+  body.appendChild(hud);
+  hud.classList.add('cv-min');
+
+  var ICON = {
+    expand: '<svg viewBox="0 0 16 16"><path d="M9.5 2.5h4v4M6.5 13.5h-4v-4M13.5 2.5 9 7M2.5 13.5 7 9"/></svg>',
+    dl: '<svg viewBox="0 0 16 16"><path d="M8 2.5v7.5M4.8 7 8 10.2 11.2 7M3 13.5h10"/></svg>',
+    minus: '<svg viewBox="0 0 16 16"><path d="M3.5 8h9"/></svg>',
+    plus: '<svg viewBox="0 0 16 16"><path d="M3.5 8h9M8 3.5v9"/></svg>',
+    fit: '<svg viewBox="0 0 16 16"><path d="M2.5 6V2.5H6M10 2.5h3.5V6M13.5 10v3.5H10M6 13.5H2.5V10"/></svg>'
+  };
+  var bar = doc.createElement('div'); bar.id = 'cv-bar'; bar.setAttribute('role', 'toolbar'); bar.setAttribute('aria-label', 'Canvas');
+  bar.innerHTML = '<button class="cv-btn" data-a="out" title="Uzaklaştır (-)">' + ICON.minus + '</button><span class="cv-zoom" id="cv-z">100%</span><button class="cv-btn" data-a="in" title="Yakınlaştır (+)">' + ICON.plus + '</button><span class="cv-sep"></span><button class="cv-btn" data-a="fit" title="Hepsini sığdır (0)">' + ICON.fit + '</button><button class="cv-txt" data-a="one" title="%100 (1)">1:1</button><span class="cv-sep"></span><button class="cv-txt" data-a="list" title="Tahtalar">Tahtalar</button><button class="cv-txt" data-a="wheel" title="Tekerlek davranışı">Tekerlek: kaydır</button>';
+  body.appendChild(bar);
+  var hint = doc.createElement('div'); hint.id = 'cv-hint'; hint.textContent = 'Sürükle: gez · Ctrl+tekerlek / sıkıştır: yakınlaştır · çift tık: hepsi · F: odakla';
+  body.appendChild(hint);
+  var list = null;
+
+  /* ---------- boards: header + tools ---------- */
+  all.forEach(function (b) {
+    var big = null, ba = 0;
+    [].forEach.call(b.children, function (c) { var r = c.getBoundingClientRect(), a = r.width * r.height; if (a > ba) { ba = a; big = c; } });
+    [].forEach.call(b.children, function (c) { c.classList.add(c === big ? 'cv-art' : 'cv-meta'); });
+  });
+  function titleOf(b) {
+    if (b.dataset.title) return b.dataset.title;
+    var h = b.querySelector(':scope > header b, :scope > header, :scope > h2, :scope > h3');
+    return (h && h.textContent.trim().split('\n')[0].slice(0, 60)) || b.dataset.board;
+  }
+  all.forEach(function (b) {
+    var h = b.querySelector(':scope > header');
+    if (!h) { h = doc.createElement('header'); h.textContent = titleOf(b); h.style.cssText = 'font:600 13px system-ui,sans-serif;margin-bottom:8px'; b.insertBefore(h, b.firstChild); }
+    h.classList.add('cv-board-head');
+    var t = doc.createElement('span'); t.className = 'cv-tools';
+    t.innerHTML = '<button class="cv-btn" data-a="focus" title="Genişlet (F)" aria-label="Genişlet">' + ICON.expand + '</button><button class="cv-btn" data-a="dl" title="Tahtayı HTML olarak indir" aria-label="İndir">' + ICON.dl + '</button>';
+    h.appendChild(t);
+    h.addEventListener('dblclick', function (e) { if (!e.target.closest('.cv-btn')) focusBoard(b); });
+  });
+
+  /* ---------- view math ---------- */
+  var v = { x: 0, y: 0, k: 1 }, rects = [], vw = root.clientWidth || innerWidth, vh = root.clientHeight || innerHeight, focused = null, wheelZoom = false;
+  var LS = 'cv:' + location.pathname;
+  function unscroll() { chain.concat([root, body]).forEach(function (n) { if (n.scrollLeft || n.scrollTop) { n.scrollLeft = 0; n.scrollTop = 0; } }); }
+  doc.addEventListener('scroll', unscroll, true); window.addEventListener('hashchange', function () { unscroll(); var id = location.hash.slice(1), b = all.filter(function (x) { return x.dataset.board === id; })[0]; if (b) focusBoard(b); });
+  function apply(anim) {
+    unscroll();
+    if (anim && !reduce) A.classList.add('cv-anim'); else A.classList.remove('cv-anim');
+    A.style.transform = 'translate(' + v.x + 'px,' + v.y + 'px) scale(' + v.k + ')';
+    root.style.backgroundImage = 'radial-gradient(circle, ' + dot() + ' 1px, transparent 1.4px)';
+    var s = Math.max(8, 28 * v.k); root.style.backgroundSize = s + 'px ' + s + 'px'; root.style.backgroundPosition = v.x + 'px ' + v.y + 'px';
+    var z = doc.getElementById('cv-z'); if (z) z.textContent = Math.round(v.k * 100) + '%';
+  }
+  var dotC = null;
+  function dot() { if (!dotC) { var m = /\d+/g, n = (pageFg.match(m) || [200, 200, 200]); dotC = 'rgba(' + n[0] + ',' + n[1] + ',' + n[2] + ',.13)'; } return dotC; }
+  function measure() {
+    var keep = A.style.transform, kc = A.className; A.classList.remove('cv-anim'); A.style.transform = 'none';
+    var o = A.getBoundingClientRect(); rects = all.map(function (b) { var r = b.getBoundingClientRect(); return { el: b, x: r.left - o.left, y: r.top - o.top, w: r.width, h: r.height }; });
+    A.style.transform = keep; A.className = kc;
+  }
+  function bbox() {
+    var x0 = 1e9, y0 = 1e9, x1 = -1e9, y1 = -1e9;
+    rects.forEach(function (r) { x0 = Math.min(x0, r.x); y0 = Math.min(y0, r.y); x1 = Math.max(x1, r.x + r.w); y1 = Math.max(y1, r.y + r.h); });
+    return { x: x0, y: y0, w: x1 - x0, h: y1 - y0 };
+  }
+  function fitRect(r, pad, max) {
+    pad = pad == null ? 56 : pad; var k = Math.min((vw - pad * 2) / r.w, (vh - pad * 2) / r.h, max || 1);
+    k = Math.max(0.04, k); v.k = k; v.x = (vw - r.w * k) / 2 - r.x * k; v.y = (vh - r.h * k) / 2 - r.y * k;
+  }
+  function fitAll(anim) { exitFocus(true); fitRect(bbox(), 72, 1); apply(anim); save(); }
+  function rectOf(b) { return rects.filter(function (r) { return r.el === b; })[0]; }
+  function focusBoard(b, noDim, instant) {
+    var r = rectOf(b); if (!r) return;
+    focused = b; all.forEach(function (x) { x.classList.toggle('cv-on', x === b); });
+    body.classList.toggle('cv-focus', !noDim);
+    var head = 40, rr = { x: r.x, y: r.y - 0, w: r.w, h: r.h + head };
+    fitRect(rr, 64, 2); apply(!instant); save();
+    try { history.replaceState(null, '', '#' + b.dataset.board); } catch (e) {}
+  }
+  function exitFocus(silent) {
+    if (!focused) return; focused = null; body.classList.remove('cv-focus'); all.forEach(function (x) { x.classList.remove('cv-on'); });
+    try { history.replaceState(null, '', location.pathname + location.search); } catch (e) {}
+    if (!silent) fitAll(true);
+  }
+  function zoomAt(cx, cy, f, anim) {
+    var nk = Math.min(4, Math.max(0.04, v.k * f)), r = nk / v.k;
+    v.x = cx - (cx - v.x) * r; v.y = cy - (cy - v.y) * r; v.k = nk; apply(anim); save();
+  }
+  function save() { try { localStorage.setItem(LS, JSON.stringify(v)); } catch (e) {} }
+  function step(dir) {
+    if (!focused) return; var i = all.indexOf(focused), j = Math.min(all.length - 1, Math.max(0, i + dir)); if (j !== i) focusBoard(all[j]);
+  }
+
+  /* ---------- download one board ---------- */
+  function download(b) {
+    var clone = b.cloneNode(true);
+    [].forEach.call(clone.querySelectorAll('.cv-tools'), function (n) { n.remove(); });
+    clone.classList.remove('cv-on'); clone.style.opacity = '';
+    var styles = [].map.call(doc.querySelectorAll('style,link[rel=stylesheet]'), function (n) { return n.id === 'cv-runtime-style' ? '' : n.outerHTML; }).join('\n');
+    var theme = root.getAttribute('data-theme') ? ' data-theme="' + root.getAttribute('data-theme') + '"' : '';
+    var html = '<!doctype html><html lang="' + (root.lang || 'tr') + '"' + theme + '><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>' + titleOf(b).replace(/</g, '&lt;') + '</title>' + styles + '<style>html,body{margin:0;padding:24px;background:' + pageBgOrig + '!important;height:auto!important;overflow:auto!important}</style></head><body>' + clone.outerHTML + '</body></html>';
+    var a = doc.createElement('a'); a.href = URL.createObjectURL(new Blob([html], { type: 'text/html' }));
+    a.download = (b.dataset.board || 'board') + '.html'; doc.body.appendChild(a); a.click(); setTimeout(function () { URL.revokeObjectURL(a.href); a.remove(); }, 500);
+  }
+
+  /* ---------- list popover ---------- */
+  function toggleList() {
+    if (list) { list.remove(); list = null; return; }
+    list = doc.createElement('div'); list.id = 'cv-list';
+    list.innerHTML = all.map(function (b, i) { return '<button data-i="' + i + '"><span>' + titleOf(b).replace(/</g, '&lt;') + '</span><small>' + Math.round(rectOf(b).w) + '×' + Math.round(rectOf(b).h) + '</small></button>'; }).join('');
+    list.addEventListener('click', function (e) { var bt = e.target.closest('button'); if (!bt) return; focusBoard(all[+bt.dataset.i], true); list.remove(); list = null; });
+    body.appendChild(list);
+  }
+
+  /* ---------- events ---------- */
+  doc.addEventListener('click', function (e) {
+    var bt = e.target.closest('.cv-btn,.cv-txt'); if (!bt) { if (list && !e.target.closest('#cv-list')) { list.remove(); list = null; } return; }
+    var a = bt.dataset.a, b = bt.closest('[data-board]');
+    if (a === 'focus') { if (focused === b) fitAll(true); else focusBoard(b); }
+    else if (a === 'dl') download(b);
+    else if (a === 'in') zoomAt(vw / 2, vh / 2, 1.25, true);
+    else if (a === 'out') zoomAt(vw / 2, vh / 2, 0.8, true);
+    else if (a === 'fit') fitAll(true);
+    else if (a === 'one') { exitFocus(true); zoomAt(vw / 2, vh / 2, 1 / v.k, true); }
+    else if (a === 'list') toggleList();
+    else if (a === 'wheel') { wheelZoom = !wheelZoom; bt.textContent = 'Tekerlek: ' + (wheelZoom ? 'yakınlaştır' : 'kaydır'); }
+  });
+  doc.addEventListener('wheel', function (e) {
+    if (e.target.closest('#cv-hud,#cv-list')) return;
+    var inScroll = false; for (var n = e.target; n && n !== body; n = n.parentElement) { if (n.scrollHeight > n.clientHeight + 2 && /(auto|scroll)/.test(getComputedStyle(n).overflowY) && !n.classList.contains('cv-anc')) { inScroll = true; break; } }
+    if (inScroll && !e.ctrlKey) return;
+    e.preventDefault();
+    var dy = e.deltaMode === 1 ? e.deltaY * 33 : e.deltaY, dx = e.deltaMode === 1 ? e.deltaX * 33 : e.deltaX;
+    if (e.ctrlKey || e.metaKey || wheelZoom) zoomAt(e.clientX, e.clientY, Math.exp(-dy * (e.ctrlKey ? 0.01 : 0.0016)));
+    else { if (e.shiftKey && !dx) { dx = dy; dy = 0; } v.x -= dx; v.y -= dy; apply(); save(); }
+    exitFocusDim();
+  }, { passive: false });
+  function exitFocusDim() { if (focused) { focused = null; body.classList.remove('cv-focus'); all.forEach(function (x) { x.classList.remove('cv-on'); }); } }
+
+  var ptrs = {}, drag = null, pinch = null, space = false;
+  function noPan(t) { return t.closest('#cv-hud,#cv-bar,#cv-list,.cv-btn,a,button,input,select,textarea,summary,label,[contenteditable]'); }
+  doc.addEventListener('pointerdown', function (e) {
+    if (noPan(e.target)) return;
+    var inBoard = e.target.closest('.artboard');
+    if (inBoard && !(space || e.button === 1 || e.altKey) && e.pointerType === 'mouse') return;
+    if (e.button > 1) return;
+    ptrs[e.pointerId] = { x: e.clientX, y: e.clientY };
+    var ids = Object.keys(ptrs);
+    if (ids.length === 2) { var p = ids.map(function (i) { return ptrs[i]; }); pinch = { d: Math.hypot(p[0].x - p[1].x, p[0].y - p[1].y), cx: (p[0].x + p[1].x) / 2, cy: (p[0].y + p[1].y) / 2 }; drag = null; }
+    else { drag = { x: e.clientX, y: e.clientY, vx: v.x, vy: v.y, moved: false }; }
+    doc.body.style.cursor = 'grabbing'; e.preventDefault();
+  });
+  window.addEventListener('pointermove', function (e) {
+    if (!ptrs[e.pointerId]) return; ptrs[e.pointerId] = { x: e.clientX, y: e.clientY };
+    var ids = Object.keys(ptrs);
+    if (ids.length >= 2 && pinch) {
+      var p = ids.slice(0, 2).map(function (i) { return ptrs[i]; }), d = Math.hypot(p[0].x - p[1].x, p[0].y - p[1].y), cx = (p[0].x + p[1].x) / 2, cy = (p[0].y + p[1].y) / 2;
+      v.x += cx - pinch.cx; v.y += cy - pinch.cy; zoomAt(cx, cy, d / pinch.d); pinch.d = d; pinch.cx = cx; pinch.cy = cy; exitFocusDim();
+    } else if (drag) {
+      var dx = e.clientX - drag.x, dy = e.clientY - drag.y; if (!drag.moved && Math.hypot(dx, dy) < 3) return; drag.moved = true;
+      v.x = drag.vx + dx; v.y = drag.vy + dy; apply(); exitFocusDim();
+    }
+  });
+  function up(e) { delete ptrs[e.pointerId]; if (Object.keys(ptrs).length < 2) pinch = null; if (!Object.keys(ptrs).length) { drag && save(); drag = null; doc.body.style.cursor = ''; } }
+  window.addEventListener('pointerup', up); window.addEventListener('pointercancel', up);
+  doc.addEventListener('dblclick', function (e) { if (!noPan(e.target) && !e.target.closest('.artboard') && !e.target.closest('[data-board]')) fitAll(true); });
+  doc.addEventListener('keydown', function (e) {
+    if (/INPUT|TEXTAREA|SELECT/.test(e.target.tagName) || e.target.isContentEditable || e.ctrlKey || e.metaKey) return;
+    var k = e.key;
+    if (k === ' ') { space = true; e.preventDefault(); }
+    else if (k === '0') fitAll(true);
+    else if (k === '1') { exitFocus(true); zoomAt(vw / 2, vh / 2, 1 / v.k, true); }
+    else if (k === '+' || k === '=') zoomAt(vw / 2, vh / 2, 1.25, true);
+    else if (k === '-' || k === '_') zoomAt(vw / 2, vh / 2, 0.8, true);
+    else if (k === 'Escape') { if (list) { list.remove(); list = null; } else if (focused) fitAll(true); }
+    else if (k === 'f' || k === 'F') { var cur = focused || nearestBoard(); if (focused) fitAll(true); else focusBoard(cur); }
+    else if (k === 'ArrowRight' || k === 'ArrowDown' || k === 'PageDown') { if (focused) { step(1); e.preventDefault(); } else { v.x -= (k === 'ArrowRight' ? 80 : 0); v.y -= (k === 'ArrowDown' ? 80 : 0); apply(); } }
+    else if (k === 'ArrowLeft' || k === 'ArrowUp' || k === 'PageUp') { if (focused) { step(-1); e.preventDefault(); } else { v.x += (k === 'ArrowLeft' ? 80 : 0); v.y += (k === 'ArrowUp' ? 80 : 0); apply(); } }
+  });
+  doc.addEventListener('keyup', function (e) { if (e.key === ' ') space = false; });
+  function nearestBoard() {
+    var cx = (vw / 2 - v.x) / v.k, cy = (vh / 2 - v.y) / v.k, best = all[0], bd = 1e18;
+    rects.forEach(function (r) { var d = Math.hypot(r.x + r.w / 2 - cx, r.y + r.h / 2 - cy); if (d < bd) { bd = d; best = r.el; } });
+    return best;
+  }
+  var rz = null;
+  window.addEventListener('resize', function () { clearTimeout(rz); rz = setTimeout(function () { vw = root.clientWidth || innerWidth; vh = root.clientHeight || innerHeight; if (focused) focusBoard(focused, false, true); }, 80); });
+
+  /* ---------- boot ---------- */
+  function boot() {
+    measure(); vw = root.clientWidth || innerWidth; vh = root.clientHeight || innerHeight;
+    var id = (location.hash || '').slice(1), hit = all.filter(function (b) { return b.dataset.board === id; })[0], saved = null;
+    try { saved = JSON.parse(localStorage.getItem(LS) || 'null'); } catch (e) {}
+    var qv = (q.get('view') || '').split(',').map(Number);
+    if (qv.length === 3 && qv.every(isFinite) && qv[2] > 0) { v = { x: qv[0], y: qv[1], k: qv[2] }; apply(false); }
+    else if (hit) focusBoard(hit, false, true);
+    else if (saved && isFinite(saved.k) && !q.get('cvtest')) { v = saved; apply(); }
+    else fitAll(false);
+    root.dataset.cv = 'ready'; root.dataset.cvBoards = String(all.length);
+    (function () { var hr = hit ? rectOf(hit) : rects[0]; root.dataset.cvDbg = JSON.stringify({ rect: hr && [hr.x, hr.y, hr.w, hr.h].map(Math.round), v: [v.x, v.y, v.k].map(function (n) { return +n.toFixed(2); }), vw: vw, vh: vh, actual: hit ? (function () { var a = hit.getBoundingClientRect(); return [a.left, a.top, a.width, a.height].map(Math.round); })() : null, cw: root.clientWidth, iw: innerWidth, W: W, aw: A.offsetWidth, dispA: getComputedStyle(A).display, wrap: getComputedStyle(A).flexWrap, meas: rects.slice(0, 5).map(function (r) { return Math.round(r.x); }), now: all.slice(0, 5).map(function (b) { return Math.round((b.getBoundingClientRect().left - v.x) / v.k); }) }); })();
+    window.__canvas = { view: function () { return v; }, fit: fitAll, focus: function (id2) { var b = all.filter(function (x) { return x.dataset.board === id2; })[0]; if (b) focusBoard(b); }, zoomAt: zoomAt, boards: all, rects: function () { return rects; } };
+    if (q.get('cvtest') || q.get('cvrects')) root.dataset.cvRects = JSON.stringify(rects.map(function (r) { return [r.el.dataset.board, Math.round(r.x), Math.round(r.y), Math.round(r.w), Math.round(r.h)]; }));
+    if (q.get('cvtest')) {
+      fitAll(false); var k0 = v.k; zoomAt(300, 200, 2); var k1 = v.k; fitAll(false); focusBoard(all[0], false, true); var f = v.k; fitAll(false);
+      var hr = hit ? rectOf(hit) : rects[0]; root.dataset.cvDbg = JSON.stringify({ rect: hr && [hr.x, hr.y, hr.w, hr.h].map(Math.round), v: [v.x, v.y, v.k].map(function (n) { return +n.toFixed(2); }), vw: vw, vh: vh });
+      root.dataset.cvTest = JSON.stringify({ k0: +k0.toFixed(3), zoomed: +(k1 / k0).toFixed(3), focusK: +f.toFixed(3), boards: all.length, world: Math.round(W), hud: chrome.length });
+    }
+  }
+  var go = function () { setTimeout(boot, 20); };
+  function start() { if (doc.fonts && doc.fonts.ready) { var done = false, once = function () { if (!done) { done = true; go(); } }; doc.fonts.ready.then(once); setTimeout(once, 700); } else go(); }
+  if (doc.readyState === 'complete') start(); else window.addEventListener('load', start);
+})();
+
+</script>
+<!-- /cv-runtime -->

@@ -1,0 +1,129 @@
+<!doctype html>
+<html lang="en" data-lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Spec Mockup Design</title>
+<meta name="description" content="An agent skill that makes AI coding agents design real UIs instead of AI slop. Live canvas demos.">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:wght@600;700&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400&display=swap">
+<style>
+/* Layout: one column; hero with the navigation GIF, install, live demo tabs, workflow, tools */
+:root{--bg:#eff5f3;--surface:#f5fbf9;--line:#d2d9d7;--fg:#1c201f;--muted:#586260;--accent:#016d5e;--accent-fg:#ffffff;--accent-soft:#d8ece7;
+ --font-display:"Bricolage Grotesque","IBM Plex Sans",system-ui,sans-serif;--font-body:"IBM Plex Sans",system-ui,sans-serif;--font-mono:"IBM Plex Mono",ui-monospace,monospace}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){--bg:#0d100f;--surface:#141918;--line:#232a28;--fg:#d9e0de;--muted:#98a09e;--accent:#50c1ab;--accent-fg:#06201a;--accent-soft:#16302b;color-scheme:dark}}
+:root[data-theme="dark"]{--bg:#0d100f;--surface:#141918;--line:#232a28;--fg:#d9e0de;--muted:#98a09e;--accent:#50c1ab;--accent-fg:#06201a;--accent-soft:#16302b;color-scheme:dark}
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--fg);font:400 16px/1.6 var(--font-body);padding-inline:16px;padding-block:24px 80px}
+main{max-width:1040px;margin:0 auto;display:flex;flex-direction:column;gap:64px}
+h1,h2{font-family:var(--font-display);margin:0;text-wrap:balance;line-height:1.1}
+h1{font-size:clamp(34px,6vw,60px);font-weight:700;letter-spacing:-.015em}
+h2{font-size:28px;margin-bottom:16px} h3{font-size:16px;margin:0 0 4px}
+p{margin:0;max-width:66ch} code,.mono{font-family:var(--font-mono);font-size:.88em}
+code{background:var(--accent-soft);padding:1px 6px;border-radius:4px}
+a{color:var(--accent)}
+.top{display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;font-size:14px}
+.top nav{display:flex;gap:16px;flex-wrap:wrap} .top a{text-decoration:none;color:var(--fg)} .top a:hover{color:var(--accent)}
+.lang{display:inline-flex;border:1px solid var(--line);border-radius:999px;overflow:hidden}
+.lang button{font:inherit;font-size:13px;border:0;background:transparent;color:var(--fg);padding:4px 12px;cursor:pointer}
+.lang button[aria-pressed=true]{background:var(--accent);color:var(--accent-fg)}
+.hero{display:grid;grid-template-columns:minmax(0,1fr);gap:28px}
+.hero p{font-size:19px;color:var(--muted)}
+.hero img{width:100%;height:auto;border:1px solid var(--line);border-radius:12px;display:block}
+.cta{display:flex;gap:10px;flex-wrap:wrap}
+.btn{display:inline-block;padding:10px 18px;border-radius:8px;border:1px solid var(--accent);background:var(--accent);color:var(--accent-fg);text-decoration:none;font-weight:600;font-size:15px}
+.btn.alt{background:transparent;color:var(--accent)}
+.code{position:relative;background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:14px 16px;font:13px/1.6 var(--font-mono);overflow-x:auto;white-space:pre}
+.copy{position:absolute;right:8px;top:8px;font:12px var(--font-body);border:1px solid var(--line);background:var(--bg);color:var(--fg);border-radius:4px;padding:2px 10px;cursor:pointer}
+.tabs{display:flex;gap:8px;overflow-x:auto;padding-bottom:6px}
+.tabs button{flex:0 0 auto;text-align:left;font:inherit;color:var(--fg);background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:8px 14px;cursor:pointer;display:flex;flex-direction:column}
+.tabs button span{font-size:12px;color:var(--muted)} .tabs button[aria-selected=true]{border-color:var(--accent);background:var(--accent-soft)}
+.tabs button:focus-visible,.btn:focus-visible,.copy:focus-visible,.lang button:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.dbar{display:flex;justify-content:space-between;gap:10px;padding-block:8px;font-size:14px;color:var(--muted);flex-wrap:wrap}
+#frame{width:100%;height:76vh;min-height:520px;border:1px solid var(--line);border-radius:12px;background:#0f1211}
+.steps{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:14px;counter-reset:s}
+.steps>div{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:16px;min-width:0}
+.steps p{color:var(--muted);font-size:15px}
+.tools{width:100%;border-collapse:collapse;font-size:15px} .tools td{padding:9px 12px;border-bottom:1px solid var(--line);vertical-align:top} .tools td:first-child{white-space:nowrap}
+.tw{overflow-x:auto;border:1px solid var(--line);border-radius:12px;background:var(--surface)} .tools tr:last-child td{border-bottom:0}
+footer{color:var(--muted);font-size:14px;border-top:1px solid var(--line);padding-top:16px;display:flex;gap:16px;flex-wrap:wrap}
+html[data-lang=en] .tr, html[data-lang=tr] .en{display:none!important}
+</style>
+</head>
+<body>
+<main>
+<div class="top">
+  <strong class="mono">spec-mockup-design</strong>
+  <nav><a href="#demo"><span class="en">Live demo</span><span class="tr">Canlı demo</span></a><a href="#how"><span class="en">How it works</span><span class="tr">Nasıl çalışır</span></a><a href="#install"><span class="en">Install</span><span class="tr">Kurulum</span></a><a href="https://github.com/lunanoir21/spec-mockup-design">GitHub</a></nav>
+  <div class="lang" role="group" aria-label="Language"><button data-l="en" aria-pressed="true">EN</button><button data-l="tr" aria-pressed="false">TR</button></div>
+</div>
+
+<section class="hero">
+  <h1><span class="en">Make AI agents design like they read your code.</span><span class="tr">Yapay zekaya kodunu okumuş gibi tasarım yaptır.</span></h1>
+  <p><span class="en">An agent skill that grounds every mockup in a real reference, shows each state on its own board, scores the result against AI-slop tells, and hands you a canvas you can pan and zoom.</span><span class="tr">Her mockup'ı gerçek bir referansa bağlayan, her durumu ayrı tahtada gösteren, sonucu AI-slop belirtilerine karşı puanlayan ve gezip yakınlaştırabileceğin bir canvas teslim eden bir ajan skill'i.</span></p>
+  <div class="cta"><a class="btn" href="#demo"><span class="en">Open the live demo</span><span class="tr">Canlı demoyu aç</span></a><a class="btn alt" href="#install"><span class="en">Install it</span><span class="tr">Kur</span></a></div>
+  <img src="../assets/canvas-demo.gif" alt="Pan and zoom canvas: overview, focus on a board, move to the next, back to overview" width="900" height="506">
+</section>
+
+<section id="demo">
+  <h2><span class="en">Live demo</span><span class="tr">Canlı demo</span></h2>
+  <p style="margin-bottom:14px"><span class="en">Four real designs made by free models following the skill. Drag to pan, Ctrl+wheel to zoom, double-click to fit, F to focus a board.</span><span class="tr">Skill'i izleyen ücretsiz modellerin ürettiği dört gerçek tasarım. Sürükleyerek gez, Ctrl+tekerlek ile yakınlaş, çift tıkla sığdır, F ile tahtaya odaklan.</span></p>
+  <div class="tabs" role="tablist" aria-label="Demos">
+    <button role="tab" aria-selected="true" data-src="demos/book-tracker.html" data-n="Book tracker"><b>Book tracker</b><span>Web app · 3 options</span></button>
+    <button role="tab" aria-selected="false" data-src="demos/weather-widget.html" data-n="Weather widget"><b>Weather widget</b><span>Desktop widget</span></button>
+    <button role="tab" aria-selected="false" data-src="demos/cpu-fan-widget.html" data-n="CPU and fan widget"><b>CPU and fan</b><span>Status bar widget</span></button>
+    <button role="tab" aria-selected="false" data-src="demos/disk-pill.html" data-n="Disk pill"><b>Disk pill</b><span>Worked example</span></button>
+  </div>
+  <div class="dbar"><span id="dn"></span><a id="dopen" href="#" target="_blank" rel="noopener"><span class="en">Open full screen</span><span class="tr">Tam ekran aç</span></a></div>
+  <iframe id="frame" title="Demo canvas" loading="lazy"></iframe>
+</section>
+
+<section id="how">
+  <h2><span class="en">How it works</span><span class="tr">Nasıl çalışır</span></h2>
+  <div class="steps">
+    <div><h3><span class="en">Ground in a reference</span><span class="tr">Referansa dayan</span></h3><p><span class="en">Reads your source for real colors, radii, spacing and timings, or asks for one. No inventing when something real exists.</span><span class="tr">Gerçek renk, radius, boşluk ve süreleri kaynağından okur veya bir referans ister. Gerçeği varken uydurmaz.</span></p></div>
+    <div><h3><span class="en">Generate a design language</span><span class="tr">Tasarım dili üret</span></h3><p><span class="en">OKLCH palette with tinted neutrals, WCAG-fixed, light and dark. Modular type scale, motion tokens, one icon weight.</span><span class="tr">Boyalı nötrlerle OKLCH paleti, WCAG'a göre düzeltilmiş, açık ve koyu. Ölçekli yazı sistemi, hareket tokenları, tek ikon kalınlığı.</span></p></div>
+    <div><h3><span class="en">One board per state</span><span class="tr">Durum başına bir tahta</span></h3><p><span class="en">Idle, hover, empty, error, loading, overflow, focus. Plus a motion storyboard, fonts, themes and tokens.</span><span class="tr">Boşta, hover, boş, hata, yükleniyor, taşma, odak. Ayrıca hareket storyboard'u, fontlar, temalar ve tokenlar.</span></p></div>
+    <div><h3><span class="en">Gate against slop</span><span class="tr">Slop kapısı</span></h3><p><span class="en">A linter scores defaults, neon, glow, gradients, emoji, cliche palettes and empty boards. A receipt proves the files exist.</span><span class="tr">Bir denetleyici varsayılanları, neonu, parlamayı, gradyanı, emojiyi, klişe paletleri ve boş tahtaları puanlar. Teslim fişi dosyaların var olduğunu kanıtlar.</span></p></div>
+    <div><h3><span class="en">Deliver a canvas</span><span class="tr">Canvas teslim et</span></h3><p><span class="en">One HTML file: infinite surface, focus, per-board download. Works offline, no build step.</span><span class="tr">Tek HTML dosyası: sonsuz yüzey, odaklama, tahta başına indirme. Çevrimdışı çalışır, derleme adımı yok.</span></p></div>
+    <div><h3><span class="en">Iterate narrowly</span><span class="tr">Dar iterasyon</span></h3><p><span class="en">React to one element and only that changes. Then hand off tokens and compare the build to the boards.</span><span class="tr">Tek bir öğeye tepki ver, yalnızca o değişir. Sonra tokenları aktar ve yapıyı tahtalarla karşılaştır.</span></p></div>
+  </div>
+</section>
+
+<section id="install">
+  <h2><span class="en">Install</span><span class="tr">Kurulum</span></h2>
+  <div class="code" id="c1"><button class="copy" data-t="c1">Copy</button>git clone https://github.com/lunanoir21/spec-mockup-design ~/.agents/skills/spec-mockup-design
+bash ~/.agents/skills/spec-mockup-design/scripts/install-everywhere.sh</div>
+  <p style="margin-top:12px;color:var(--muted)"><span class="en">Links the skill into Claude Code, Codex, opencode, Gemini, Cursor, Kiro, Qwen and more. Never overwrites or deletes. Needs Python 3.8+ and, for screenshots, Chromium.</span><span class="tr">Skill'i Claude Code, Codex, opencode, Gemini, Cursor, Kiro, Qwen ve diğerlerine bağlar. Hiçbir şeyin üstüne yazmaz, silmez. Python 3.8+ ve ekran görüntüleri için Chromium gerekir.</span></p>
+</section>
+
+<section id="tools">
+  <h2><span class="en">What ships</span><span class="tr">İçinde ne var</span></h2>
+  <div class="tw"><table class="tools"><tbody>
+    <tr><td><code>palette.py</code></td><td><span class="en">Harmonious light and dark palette from one hue, tinted neutrals, semantic and chart colors.</span><span class="tr">Tek tondan uyumlu açık ve koyu palet, boyalı nötrler, durum ve grafik renkleri.</span></td></tr>
+    <tr><td><code>slop-lint.py</code></td><td><span class="en">0-100 slop score with the reason for every flag.</span><span class="tr">Her uyarının nedeniyle 0-100 slop puanı.</span></td></tr>
+    <tr><td><code>new-canvas.py</code></td><td><span class="en">Scaffolds the pan and zoom canvas. <code>canvasify.py</code> adds it to any hand-written HTML.</span><span class="tr">Gezilebilir canvas iskeleti kurar. <code>canvasify.py</code> elle yazılmış her HTML'e ekler.</span></td></tr>
+    <tr><td><code>extract-tokens.py</code></td><td><span class="en">Counts real colors, durations, easings and fonts in your codebase.</span><span class="tr">Kod tabanındaki gerçek renk, süre, easing ve fontları sayar.</span></td></tr>
+    <tr><td><code>shoot.sh</code> <code>check-done.py</code></td><td><span class="en">Headless screenshots of every board and a delivery receipt.</span><span class="tr">Her tahtanın ekran görüntüsü ve teslim fişi.</span></td></tr>
+    <tr><td><code>tests/</code></td><td><span class="en">85-test self-test and a grader for agent runs.</span><span class="tr">85 testlik öz-test ve ajan koşuları için notlayıcı.</span></td></tr>
+  </tbody></table></div>
+</section>
+
+<footer><span>MIT</span><a href="https://github.com/lunanoir21/spec-mockup-design">GitHub</a><a href="https://github.com/lunanoir21/spec-mockup-design/blob/main/README.md">README</a><a href="https://github.com/lunanoir21/spec-mockup-design/blob/main/README.tr.md">Türkçe README</a></footer>
+</main>
+<script>
+(function(){
+ var root=document.documentElement;
+ function setLang(l){root.dataset.lang=l;root.lang=l;document.querySelectorAll('.lang button').forEach(function(b){b.setAttribute('aria-pressed',b.dataset.l===l)});try{localStorage.setItem('smd-lang',l)}catch(e){}}
+ document.querySelectorAll('.lang button').forEach(function(b){b.onclick=function(){setLang(b.dataset.l)}});
+ var l=null;try{l=localStorage.getItem('smd-lang')}catch(e){} if(!l&&/^tr/i.test(navigator.language||''))l='tr'; if(l)setLang(l);
+ var tabs=[].slice.call(document.querySelectorAll('.tabs [role=tab]')),f=document.getElementById('frame'),n=document.getElementById('dn'),o=document.getElementById('dopen');
+ function show(t){tabs.forEach(function(b){b.setAttribute('aria-selected',b===t)});f.src=t.dataset.src;o.href=t.dataset.src;n.textContent=t.dataset.n}
+ tabs.forEach(function(b,i){b.onclick=function(){show(b)};b.onkeydown=function(e){var j=e.key==='ArrowRight'?i+1:e.key==='ArrowLeft'?i-1:-1;if(j>=0&&tabs[j]){tabs[j].focus();show(tabs[j])}}});
+ show(tabs[0]);
+ document.querySelectorAll('.copy').forEach(function(b){b.onclick=function(){var el=document.getElementById(b.dataset.t),txt=el.innerText.replace(/^Copy\s*/,'');
+  function done(){b.textContent='Copied';setTimeout(function(){b.textContent='Copy'},1500)}
+  if(navigator.clipboard&&navigator.clipboard.writeText){navigator.clipboard.writeText(txt).then(done,function(){var r=document.createRange();r.selectNodeContents(el);var s=getSelection();s.removeAllRanges();s.addRange(r)})}}});
+})();
+</script>
+</body>
+</html>

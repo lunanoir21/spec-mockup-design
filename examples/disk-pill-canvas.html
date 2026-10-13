@@ -1,0 +1,114 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Disk pill (worked example)</title>
+<!-- CHANGELOG
+  r1: scaffold
+-->
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;600&family=Bricolage+Grotesque:wght@500&display=swap">
+<style>
+/* Worked example: tiny bar pill. Copy the structure (real-size boards, token-only styling, tokens board), replace everything else. */
+/* ===== TOKENS: replace with the real palette/type (see references/anti-slop.md) ===== */
+:root{
+  --bg:#eff5f3; --surface:#f5fbf9; --line:#d2d9d7; --text:#1c201f; --muted:#636b69; --accent:#016d5e;
+  --danger:#953e37; --ok:#326c41;
+  --radius-s:4px; --radius-m:8px; --radius-l:14px; --space:4px;
+  --dur-micro:120ms; --dur-small:200ms; --dur-large:300ms; --ease-out:cubic-bezier(.2,.8,.2,1);
+  --font-ui:"IBM Plex Sans","Public Sans",sans-serif; --font-display:"Bricolage Grotesque","IBM Plex Sans",sans-serif; --font-mono:"JetBrains Mono",monospace;
+  /* canvas chrome (not part of the design) */
+  --canvas:#dde4e1; --chrome:#566360;
+}
+:root[data-theme="graphite"]{--bg:#0d100f;--surface:#111413;--line:#1e2322;--text:#d9e0de;--muted:#98a09e;--accent:#50c1ab;--danger:#ec8c82;--ok:#80bb8c}
+*{box-sizing:border-box}
+html{background:var(--canvas)}
+body{margin:0;font:14px/1.5 system-ui,sans-serif;color:#14201c}
+.shell{padding:24px 16px 80px;max-width:1700px;margin:0 auto}
+h1{font:600 20px/1.2 system-ui;margin:0 0 4px}
+.sub{color:var(--chrome);margin:0 0 16px;font-size:13px}
+nav.index{display:flex;flex-wrap:wrap;gap:6px 12px;margin:0 0 24px;padding:0 0 12px;border-bottom:1px solid #c3ccc8}
+nav.index a{color:#14201c;text-decoration:none;font-size:13px;border-bottom:1px solid transparent}
+nav.index a:hover{border-bottom-color:currentColor}
+.themes{display:flex;gap:8px;margin:0 0 16px;flex-wrap:wrap}
+.themes button{font:inherit;font-size:12px;padding:4px 10px;border:1px solid #b0bab6;background:transparent;border-radius:999px;cursor:pointer}
+.themes button[aria-pressed=true]{background:#14201c;color:#eef3f1;border-color:#14201c}
+.grid{display:flex;flex-wrap:wrap;gap:32px 28px;align-items:flex-start}
+.board{display:flex;flex-direction:column;gap:8px;max-width:100%}
+.board>header{display:flex;gap:8px;align-items:baseline;font-size:12px;color:var(--chrome)}
+.board>header b{color:#14201c;font-weight:600}
+.board>header code{font:11px var(--font-mono);opacity:.8}
+.artboard{background:var(--bg);color:var(--text);font:14px/1.5 var(--font-ui);border:1px solid #c3ccc8;overflow:hidden;position:relative}
+.note{max-width:var(--w,520px);font-size:12px;color:var(--chrome)}
+body.only .shell>h1,body.only .sub,body.only nav.index,body.only .themes{display:none}
+body.only .shell{padding:12px}
+body.only .board:not(.on){display:none}
+@media (max-width:600px){.artboard{max-width:100%}}
+@media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
+
+.pill{display:flex;align-items:center;gap:10px;height:40px;padding:0 14px;background:var(--surface);border-bottom:1px solid var(--line);font-size:13px}
+.pill .val{font:500 20px/1 var(--font-display);font-variant-numeric:tabular-nums}
+.pill .bar{flex:1;height:4px;background:var(--line);border-radius:2px;overflow:hidden}
+.pill .bar i{display:block;height:100%;background:var(--accent);width:63%}
+.pill svg{width:16px;height:16px;stroke:currentColor;fill:none;stroke-width:1.5;stroke-linecap:round;stroke-linejoin:round}
+.pill.hover{background:color-mix(in srgb,var(--surface) 88%,var(--text))}
+.pill.crit .bar i{background:var(--danger);width:94%} .pill.crit .val{color:var(--danger)}
+.pop{padding:16px;display:flex;flex-direction:column;gap:12px}
+.pop h2{font:500 28px/1.1 var(--font-display);margin:0}
+.row{display:flex;justify-content:space-between;font-size:13px;padding:6px 0;border-top:1px solid var(--line)}
+.row span:last-child{font-variant-numeric:tabular-nums;color:var(--muted)}
+.sw{display:flex;gap:8px;flex-wrap:wrap;padding:16px} .sw div{width:72px;font-size:11px} .sw b{display:block;height:36px;border:1px solid var(--line);border-radius:var(--radius-s);margin-bottom:4px}
+</style>
+</head>
+<body>
+<div class="shell">
+<h1>Disk pill (worked example)</h1>
+<p class="sub">Canvas · 5 boards · real size artboards · edit tokens in :root</p>
+<div class="themes" role="group" aria-label="Theme"><button data-theme="paper" aria-pressed="false">Paper</button><button data-theme="graphite" aria-pressed="false">Graphite</button></div>
+<nav class="index"><a href="#idle">idle</a><a href="#hover">hover</a><a href="#critical">critical</a><a href="#expanded">expanded</a><a href="#tokens">tokens</a></nav>
+<div class="grid">
+<section class="board" id="idle" data-board="idle" style="--w:200px">
+  <header><b>Idle</b><code>200×40</code></header>
+  <div class="artboard" style="width:200px;height:40px"><div class="pill "><svg viewBox="0 0 16 16"><ellipse cx="8" cy="4" rx="5" ry="2"/><path d="M3 4v8c0 1.1 2.2 2 5 2s5-.9 5-2V4"/></svg><span>/home</span><div class="bar"><i></i></div><span class="val">63%</span></div></div>
+  <div class="note">State note: what changes here and which spec row it matches.</div>
+</section>
+<section class="board" id="hover" data-board="hover" style="--w:200px">
+  <header><b>Hover</b><code>200×40</code></header>
+  <div class="artboard" style="width:200px;height:40px"><div class="pill hover"><svg viewBox="0 0 16 16"><ellipse cx="8" cy="4" rx="5" ry="2"/><path d="M3 4v8c0 1.1 2.2 2 5 2s5-.9 5-2V4"/></svg><span>/home</span><div class="bar"><i></i></div><span class="val">63%</span></div></div>
+  <div class="note">State note: what changes here and which spec row it matches.</div>
+</section>
+<section class="board" id="critical" data-board="critical" style="--w:200px">
+  <header><b>Critical</b><code>200×40</code></header>
+  <div class="artboard" style="width:200px;height:40px"><div class="pill crit"><svg viewBox="0 0 16 16"><ellipse cx="8" cy="4" rx="5" ry="2"/><path d="M3 4v8c0 1.1 2.2 2 5 2s5-.9 5-2V4"/></svg><span>/home</span><div class="bar"><i></i></div><span class="val">94%</span></div></div>
+  <div class="note">State note: what changes here and which spec row it matches.</div>
+</section>
+<section class="board" id="expanded" data-board="expanded" style="--w:340px">
+  <header><b>Expanded</b><code>340×300</code></header>
+  <div class="artboard" style="width:340px;height:300px"><div class="pop"><h2>412 GB free</h2><div class="row"><span>/home</span><span>1.24 TB of 1.95 TB</span></div><div class="row"><span>/var/lib/docker</span><span>38.2 GB of 120 GB</span></div><div class="row"><span>/mnt/arşiv</span><span>2.81 TB of 3.64 TB</span></div></div></div>
+  <div class="note">State note: what changes here and which spec row it matches.</div>
+</section>
+<section class="board" id="tokens" data-board="tokens" style="--w:520px">
+  <header><b>Tokens</b><code>520×240</code></header>
+  <div class="artboard" style="width:520px;height:240px"><div class="sw"><div><b style="background:var(--bg)"></b>--bg</div><div><b style="background:var(--surface)"></b>--surface</div><div><b style="background:var(--line)"></b>--line</div><div><b style="background:var(--text)"></b>--text</div><div><b style="background:var(--muted)"></b>--muted</div><div><b style="background:var(--accent)"></b>--accent</div><div><b style="background:var(--danger)"></b>--danger</div><div><b style="background:var(--ok)"></b>--ok</div></div><div style="padding:0 16px;font-size:12px;color:var(--muted)">radius 4 / 8 / 14 · motion 120 / 200 / 300 ms · ease-out cubic-bezier(.2,.8,.2,1)</div></div>
+  <div class="note">State note: what changes here and which spec row it matches.</div>
+</section>
+
+<section class="board" id="empty" data-board="empty" style="--w:200px"><header><b>Empty</b><code>200×40</code></header><div class="artboard" style="width:200px;height:40px"><div class="pill"><span style="color:var(--muted)">No disks mounted</span></div></div><div class="note">Empty: nothing mounted; pill stays 40 px tall.</div></section>
+<section class="board" id="loading" data-board="loading" style="--w:200px"><header><b>Loading</b><code>200×40</code></header><div class="artboard" style="width:200px;height:40px"><div class="pill"><span style="color:var(--muted)">Reading /home…</span><div class="bar"><i style="width:30%;opacity:.5"></i></div></div></div><div class="note">Loading: bar at 30% and dimmed until the first df result.</div></section>
+<section class="board" id="error-long" data-board="error-long" style="--w:200px"><header><b>Error and long text</b><code>200×40</code></header><div class="artboard" style="width:200px;height:40px"><div class="pill crit"><span style="max-width:96px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">/mnt/yedekleme-arşivi-2026</span><span class="val">—</span></div></div><div class="note">Error: df failed, long mount path truncated with an ellipsis. Disabled and focus: ring 2 px var(--accent), offset 2 px.</div></section>
+</div>
+</div>
+<script>
+(function(){
+  var q=new URLSearchParams(location.search), only=q.get('only'), th=q.get('theme');
+  function theme(id){document.documentElement.dataset.theme=id;
+    document.querySelectorAll('.themes button').forEach(function(b){b.setAttribute('aria-pressed',b.dataset.theme===id)});
+    try{localStorage.setItem('canvas-theme',id)}catch(e){}}
+  document.querySelectorAll('.themes button').forEach(function(b){b.onclick=function(){theme(b.dataset.theme)}});
+  try{th=th||localStorage.getItem('canvas-theme')}catch(e){}
+  theme(th||'paper');
+  if(only){document.body.classList.add('only');var el=document.querySelector('[data-board="'+only+'"]');if(el)el.classList.add('on');}
+})();
+</script>
+</body>
+</html>
