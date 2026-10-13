@@ -72,6 +72,13 @@ Başarısızlıklar doğrudan düzeltmelere dönüştü (uydurma rapora karşı 
 
 Dürüst sınırlar: denetleyici zevki değil varsayılanları ölçer, ekran görüntülerine bakmak gerekir. Kalite modele bağlı; bazı modeller erken bırakıyor veya çok uzun cilalıyor.
 
+## Yapay zeka ile yapıldı
+
+Bu proje yapay zeka ile geliştirildi. Skill'in kodu, scriptleri, testleri, belgeleri ve açılış sayfası, depo sahibinin yönlendirdiği uzun bir oturumda Claude (Claude Code) tarafından yazıldı;
+hedefleri belirleyen, sonuçları inceleyen ve kararları veren depo sahibi. Galerideki demo canvas'lar skill'i izleyen yapay zeka ajanlarınca üretildi:
+çoğu ücretsiz opencode modelleriyle, biri Claude ile; her kart modelinin adını gösteriyor. Örnek istemler ve "tipik varsayılan" karşılaştırma sayfası açıklayıcı örneklerdir.
+Testler ve CI gerçekten çalışır (`python3 tests/selftest.py`), ama önemli bir iş için kullanmadan önce kodu gözden geçir.
+
 ## Katkı
 
 Sorun ve PR'lar açık, bkz. [CONTRIBUTING.md](CONTRIBUTING.md). Değişiklikten önce `python3 tests/selftest.py` çalıştır.

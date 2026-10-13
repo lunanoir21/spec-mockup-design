@@ -6,3 +6,5 @@
 - A new slop rule needs a case in the self-test (one page that triggers it, one tasteful page that must not).
 - To evaluate the skill with an agent, run a design task with a free model and grade it: `python3 tests/grade-run.py <run_dir>`.
 - Keep `SKILL.md` short and imperative; put detail in `references/`.
+
+- AI-assisted contributions are welcome. Say so in the PR description, and make sure you ran the tests yourself.
